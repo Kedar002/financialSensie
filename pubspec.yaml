@@ -1,5 +1,5 @@
 name: financesensei
-description: "Personal finance management app - Offline first"
+description: "Personal Financial Operating System - Offline first"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -17,6 +17,9 @@ dependencies:
 
   # State Management
   provider: ^6.1.1
+
+  # Formatting
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:
