@@ -8,6 +8,7 @@ import '../../emergency_fund/screens/emergency_fund_screen.dart';
 import '../../goals/screens/goals_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import 'log_spending_screen.dart';
+import 'budget_sheet_screen.dart';
 
 /// Home screen - THE core screen.
 /// Shows safe-to-spend prominently. Nothing else competes.
@@ -152,9 +153,25 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'This month',
-          style: Theme.of(context).textTheme.headlineMedium,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'This month',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            GestureDetector(
+              onTap: _viewBudgetSheet,
+              child: Text(
+                'View budget',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.gray500,
+                      decoration: TextDecoration.underline,
+                    ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: AppTheme.spacing16),
         AppCard(
@@ -244,6 +261,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (result == true) {
       _loadData();
     }
+  }
+
+  void _viewBudgetSheet() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const BudgetSheetScreen(),
+      ),
+    );
   }
 }
 

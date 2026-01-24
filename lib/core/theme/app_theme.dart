@@ -10,14 +10,18 @@ class AppTheme {
   static const Color white = Color(0xFFFFFFFF);
   static const Color gray100 = Color(0xFFF5F5F5);
   static const Color gray200 = Color(0xFFE5E5E5);
+  static const Color gray300 = Color(0xFFD4D4D4);
   static const Color gray400 = Color(0xFF9E9E9E);
+  static const Color gray500 = Color(0xFF757575);
   static const Color gray600 = Color(0xFF616161);
 
   // Spacing - 8px base unit
   static const double spacing4 = 4;
+  static const double spacing6 = 6;
   static const double spacing8 = 8;
   static const double spacing12 = 12;
   static const double spacing16 = 16;
+  static const double spacing20 = 20;
   static const double spacing24 = 24;
   static const double spacing32 = 32;
   static const double spacing48 = 48;
