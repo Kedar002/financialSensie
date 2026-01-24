@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/repositories/expense_repository.dart';
 import '../../../core/models/fixed_expense.dart';
-import 'savings_setup_screen.dart';
+import 'variable_budget_setup_screen.dart';
 
 /// Fixed expenses setup - essential items only.
 class ExpensesSetupScreen extends StatefulWidget {
@@ -193,7 +193,7 @@ class _ExpensesSetupScreenState extends State<ExpensesSetupScreen> {
         } else {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (_) => SavingsSetupScreen(userId: widget.userId),
+              builder: (_) => VariableBudgetSetupScreen(userId: widget.userId),
             ),
           );
         }
@@ -208,7 +208,7 @@ class _ExpensesSetupScreenState extends State<ExpensesSetupScreen> {
   void _skip(BuildContext context) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => SavingsSetupScreen(userId: widget.userId),
+        builder: (_) => VariableBudgetSetupScreen(userId: widget.userId),
       ),
     );
   }

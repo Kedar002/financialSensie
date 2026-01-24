@@ -17,10 +17,11 @@ class UserRepository extends BaseRepository<UserProfile> {
     return fromMap(results.first);
   }
 
-  Future<int> createUser(String name, {String currency = 'INR'}) async {
+  Future<int> createUser(String name, {String currency = 'INR', int salaryDay = 1}) async {
     final user = UserProfile(
       name: name,
       currency: currency,
+      salaryDay: salaryDay,
       createdAt: timestamp,
       updatedAt: timestamp,
     );
@@ -31,4 +32,46 @@ class UserRepository extends BaseRepository<UserProfile> {
     final user = await getCurrentUser();
     return user != null;
   }
+
+  Future<int> updateSalaryDay(int userId, int salaryDay) async {
+    return await db.update(
+      tableName,
+      {
+        'salary_day': salaryDay.clamp(1, 28),
+        'updated_at': timestamp,
+      },
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+  }
+
+  /// Get current payment cycle dates for the user
+  Future<PaymentCycle?> getCurrentPaymentCycle() async {
+    final user = await getCurrentUser();
+    if (user == null) return null;
+
+    return PaymentCycle(
+      startDate: user.currentCycleStart,
+      endDate: user.currentCycleEnd,
+      daysRemaining: user.daysRemainingInCycle,
+      salaryDay: user.salaryDay,
+    );
+  }
+}
+
+class PaymentCycle {
+  final DateTime startDate;
+  final DateTime endDate;
+  final int daysRemaining;
+  final int salaryDay;
+
+  const PaymentCycle({
+    required this.startDate,
+    required this.endDate,
+    required this.daysRemaining,
+    required this.salaryDay,
+  });
+
+  int get totalDays => endDate.difference(startDate).inDays + 1;
+  int get daysPassed => totalDays - daysRemaining;
 }

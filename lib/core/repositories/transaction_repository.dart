@@ -39,6 +39,7 @@ class TransactionRepository extends BaseRepository<Transaction> {
     return results.map((map) => fromMap(map)).toList();
   }
 
+  /// Get spending for a specific calendar month
   Future<double> getMonthlySpending(int userId, {DateTime? month}) async {
     final targetMonth = month ?? DateTime.now();
     final start = DateTime(targetMonth.year, targetMonth.month, 1);
@@ -46,6 +47,26 @@ class TransactionRepository extends BaseRepository<Transaction> {
 
     final transactions = await getByDateRange(userId, start, end);
     return transactions.fold<double>(0.0, (sum, t) => sum + t.amount);
+  }
+
+  /// Get spending for a payment cycle (salary date to salary date)
+  Future<double> getCycleSpending(int userId, DateTime cycleStart, DateTime cycleEnd) async {
+    final transactions = await getByDateRange(userId, cycleStart, cycleEnd);
+    return transactions.fold<double>(0.0, (sum, t) => sum + t.amount);
+  }
+
+  /// Get recent transactions
+  Future<List<Transaction>> getRecent(int userId, {int limit = 5}) async {
+    return await getByUserId(userId, limit: limit);
+  }
+
+  /// Get transactions for current payment cycle
+  Future<List<Transaction>> getCycleTransactions(
+    int userId,
+    DateTime cycleStart,
+    DateTime cycleEnd,
+  ) async {
+    return await getByDateRange(userId, cycleStart, cycleEnd);
   }
 
   Future<int> addTransaction({
@@ -69,5 +90,14 @@ class TransactionRepository extends BaseRepository<Transaction> {
       createdAt: timestamp,
     );
     return await insert(transaction);
+  }
+
+  /// Delete a transaction
+  Future<int> deleteTransaction(int transactionId) async {
+    return await db.delete(
+      tableName,
+      where: 'id = ?',
+      whereArgs: [transactionId],
+    );
   }
 }

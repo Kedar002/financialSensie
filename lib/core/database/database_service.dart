@@ -36,7 +36,7 @@ class DatabaseService {
     FinancialSnapshotTable(),
   ];
 
-  static const int _version = 1;
+  static const int _version = 2;
   static const String _dbName = 'financesensei.db';
 
   Future<Database> get database async {
