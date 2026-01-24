@@ -134,4 +134,19 @@ class DatabaseService {
     await db.close();
     _database = null;
   }
+
+  /// Delete all data from all tables.
+  /// Used for resetting the app.
+  Future<void> deleteAllData() async {
+    final db = await database;
+
+    // Delete in reverse order to respect foreign key constraints
+    final reversedTables = _tables.reversed.toList();
+    for (final table in reversedTables) {
+      await db.delete(table.tableName);
+    }
+  }
+
+  /// Get list of all table names
+  List<String> get tableNames => _tables.map((t) => t.tableName).toList();
 }

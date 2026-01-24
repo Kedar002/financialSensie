@@ -158,23 +158,49 @@ class _EmergencyFundScreenState extends State<EmergencyFundScreen> {
   }
 
   Widget _buildDetailsCard() {
+    final targetMonths = _status?.targetMonths ?? 6;
+    final monthlyExpenses = _status?.monthlyEssential ?? 0;
+
     return AppCard(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildDetailRow(
-            'Target (${_status?.targetMonths ?? 6} months)',
+            'Target ($targetMonths months)',
             Formatters.currency(_status?.targetAmount ?? 0),
           ),
           const Divider(height: AppTheme.spacing24),
           _buildDetailRow(
-            'Monthly expenses',
-            Formatters.currency(_status?.monthlyEssential ?? 0),
+            'Monthly essentials',
+            Formatters.currency(monthlyExpenses),
           ),
           const Divider(height: AppTheme.spacing24),
           _buildDetailRow(
             'Still needed',
             Formatters.currency(_status?.remainingAmount ?? 0),
             bold: true,
+          ),
+          const SizedBox(height: AppTheme.spacing16),
+          Container(
+            padding: const EdgeInsets.all(AppTheme.spacing12),
+            decoration: BoxDecoration(
+              color: AppTheme.gray100,
+              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.lightbulb_outline, size: 16, color: AppTheme.gray600),
+                const SizedBox(width: AppTheme.spacing8),
+                Expanded(
+                  child: Text(
+                    'Based on ${Formatters.currency(monthlyExpenses)}/month essential expenses × $targetMonths months',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.gray600,
+                        ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

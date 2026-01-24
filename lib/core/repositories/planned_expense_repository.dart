@@ -80,4 +80,26 @@ class PlannedExpenseRepository extends BaseRepository<PlannedExpense> {
       whereArgs: [goalId],
     );
   }
+
+  /// Mark a goal as completed
+  Future<int> markAsCompleted(int goalId) async {
+    return await db.update(
+      tableName,
+      {
+        'status': 'completed',
+        'updated_at': timestamp,
+      },
+      where: 'id = ?',
+      whereArgs: [goalId],
+    );
+  }
+
+  /// Delete a goal
+  Future<int> deleteGoal(int goalId) async {
+    return await db.delete(
+      tableName,
+      where: 'id = ?',
+      whereArgs: [goalId],
+    );
+  }
 }

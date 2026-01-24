@@ -76,6 +76,16 @@ class GoalService {
     await _goalRepo.addToGoal(goalId, amount);
   }
 
+  /// Mark a goal as completed
+  Future<void> markAsCompleted(int goalId) async {
+    await _goalRepo.markAsCompleted(goalId);
+  }
+
+  /// Delete a goal
+  Future<void> deleteGoal(int goalId) async {
+    await _goalRepo.deleteGoal(goalId);
+  }
+
   /// Get summary of all goals
   Future<GoalsSummary> getSummary(int userId) async {
     final goals = await getActiveGoals(userId);

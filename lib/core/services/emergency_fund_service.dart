@@ -71,7 +71,10 @@ class EmergencyFundService {
   }
 
   /// Add money to emergency fund
+  /// Creates the fund if it doesn't exist
   Future<void> addToFund(int userId, double amount) async {
+    // Ensure fund exists before adding
+    await getOrCreateFund(userId);
     await _fundRepo.addToFund(userId, amount);
   }
 

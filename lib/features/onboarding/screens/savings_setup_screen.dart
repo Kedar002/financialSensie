@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/repositories/user_repository.dart';
 import '../../../core/repositories/emergency_fund_repository.dart';
 import '../../../core/services/emergency_fund_service.dart';
 import '../../home/screens/home_screen.dart';
 
 /// Emergency fund setup - current savings.
 class SavingsSetupScreen extends StatefulWidget {
-  const SavingsSetupScreen({super.key});
+  final int userId;
+  final bool isEditing;
+
+  const SavingsSetupScreen({
+    super.key,
+    required this.userId,
+    this.isEditing = false,
+  });
 
   @override
   State<SavingsSetupScreen> createState() => _SavingsSetupScreenState();
@@ -16,10 +22,25 @@ class SavingsSetupScreen extends StatefulWidget {
 
 class _SavingsSetupScreenState extends State<SavingsSetupScreen> {
   final _controller = TextEditingController();
-  final _userRepo = UserRepository();
   final _fundRepo = EmergencyFundRepository();
   final _fundService = EmergencyFundService();
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isEditing) {
+      _loadExistingData();
+    }
+  }
+
+  Future<void> _loadExistingData() async {
+    final fund = await _fundRepo.getByUserId(widget.userId);
+    if (fund != null) {
+      _controller.text = fund.currentAmount.toStringAsFixed(0);
+    }
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
@@ -30,15 +51,28 @@ class _SavingsSetupScreenState extends State<SavingsSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: widget.isEditing
+          ? AppBar(
+              backgroundColor: AppTheme.white,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: AppTheme.black),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: const Text('Edit Savings'),
+            )
+          : null,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppTheme.spacing24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: AppTheme.spacing48),
+              if (!widget.isEditing) const SizedBox(height: AppTheme.spacing48),
               Text(
-                'Current savings',
+                widget.isEditing
+                    ? 'Update your savings'
+                    : 'Current savings',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: AppTheme.spacing8),
@@ -56,7 +90,7 @@ class _SavingsSetupScreenState extends State<SavingsSetupScreen> {
                   hintText: '0',
                   prefixText: '₹ ',
                 ),
-                autofocus: true,
+                autofocus: !widget.isEditing,
               ),
               const Spacer(),
               ElevatedButton(
@@ -70,15 +104,17 @@ class _SavingsSetupScreenState extends State<SavingsSetupScreen> {
                           color: AppTheme.white,
                         ),
                       )
-                    : const Text('Finish Setup'),
+                    : Text(widget.isEditing ? 'Save' : 'Finish Setup'),
               ),
-              const SizedBox(height: AppTheme.spacing16),
-              Center(
-                child: TextButton(
-                  onPressed: () => _skip(context),
-                  child: const Text('I\'ll add this later'),
+              if (!widget.isEditing) ...[
+                const SizedBox(height: AppTheme.spacing16),
+                Center(
+                  child: TextButton(
+                    onPressed: () => _skip(context),
+                    child: const Text('I\'ll add this later'),
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: AppTheme.spacing24),
             ],
           ),
@@ -91,24 +127,25 @@ class _SavingsSetupScreenState extends State<SavingsSetupScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final user = await _userRepo.getCurrentUser();
-      if (user == null) return;
-
       final currentSavings = double.tryParse(_controller.text) ?? 0;
-      final target = await _fundService.calculateTarget(user.id!);
+      final target = await _fundService.calculateTarget(widget.userId);
 
       await _fundRepo.createOrUpdate(
-        userId: user.id!,
+        userId: widget.userId,
         targetAmount: target,
         currentAmount: currentSavings,
         monthlyEssential: target / 6,
       );
 
       if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-          (route) => false,
-        );
+        if (widget.isEditing) {
+          Navigator.of(context).pop();
+        } else {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (route) => false,
+          );
+        }
       }
     } finally {
       if (mounted) {

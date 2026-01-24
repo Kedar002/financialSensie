@@ -110,6 +110,27 @@ class AppTheme {
             color: gray400,
             letterSpacing: 0.5,
           ),
+          // Small body text
+          bodySmall: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+            color: gray600,
+            height: 1.4,
+          ),
+          // Title medium
+          titleMedium: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: black,
+            letterSpacing: -0.2,
+          ),
+          // Title small
+          titleSmall: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: black,
+            letterSpacing: 0,
+          ),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(

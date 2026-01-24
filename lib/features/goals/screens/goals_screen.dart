@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/repositories/user_repository.dart';
 import '../../../core/services/goal_service.dart';
@@ -104,7 +105,10 @@ class _GoalsScreenState extends State<GoalsScreen> {
                       padding: const EdgeInsets.only(
                         bottom: AppTheme.spacing16,
                       ),
-                      child: _GoalCard(goal: _goals[index]),
+                      child: _GoalCard(
+                        goal: _goals[index],
+                        onTap: () => _showGoalActions(_goals[index]),
+                      ),
                     ),
                     childCount: _goals.length,
                   ),
@@ -201,17 +205,145 @@ class _GoalsScreenState extends State<GoalsScreen> {
       _loadData();
     }
   }
+
+  void _showGoalActions(PlannedExpense goal) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusMedium),
+        ),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spacing24,
+                  vertical: AppTheme.spacing8,
+                ),
+                child: Text(
+                  goal.name,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.add),
+                title: const Text('Add contribution'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _addContribution(goal);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.check_circle_outline),
+                title: const Text('Mark as completed'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _markAsCompleted(goal);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Delete goal'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deleteGoal(goal);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _addContribution(PlannedExpense goal) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusMedium),
+        ),
+      ),
+      builder: (context) => _AddContributionSheet(
+        goal: goal,
+        onAdded: _loadData,
+      ),
+    );
+  }
+
+  void _markAsCompleted(PlannedExpense goal) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Complete goal?'),
+        content: Text('Mark "${goal.name}" as completed?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Complete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && goal.id != null) {
+      await _goalService.markAsCompleted(goal.id!);
+      _loadData();
+    }
+  }
+
+  void _deleteGoal(PlannedExpense goal) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete goal?'),
+        content: Text('Delete "${goal.name}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && goal.id != null) {
+      await _goalService.deleteGoal(goal.id!);
+      _loadData();
+    }
+  }
 }
 
 class _GoalCard extends StatelessWidget {
   final PlannedExpense goal;
+  final VoidCallback? onTap;
 
-  const _GoalCard({required this.goal});
+  const _GoalCard({required this.goal, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      child: Column(
+    return GestureDetector(
+      onTap: onTap,
+      child: AppCard(
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -252,7 +384,107 @@ class _GoalCard extends StatelessWidget {
             style: Theme.of(context).textTheme.labelMedium,
           ),
         ],
+        ),
       ),
     );
+  }
+}
+
+class _AddContributionSheet extends StatefulWidget {
+  final PlannedExpense goal;
+  final VoidCallback onAdded;
+
+  const _AddContributionSheet({
+    required this.goal,
+    required this.onAdded,
+  });
+
+  @override
+  State<_AddContributionSheet> createState() => _AddContributionSheetState();
+}
+
+class _AddContributionSheetState extends State<_AddContributionSheet> {
+  final _controller = TextEditingController();
+  final _goalService = GoalService();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = widget.goal.remainingAmount;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: AppTheme.spacing24,
+        right: AppTheme.spacing24,
+        top: AppTheme.spacing24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + AppTheme.spacing24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Add to ${widget.goal.name}',
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          const SizedBox(height: AppTheme.spacing8),
+          Text(
+            '${Formatters.currency(remaining)} remaining',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: AppTheme.spacing24),
+          TextField(
+            controller: _controller,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              hintText: 'Amount',
+              prefixText: '₹ ',
+            ),
+            autofocus: true,
+          ),
+          const SizedBox(height: AppTheme.spacing24),
+          ElevatedButton(
+            onPressed: _isLoading ? null : _add,
+            child: _isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.white,
+                    ),
+                  )
+                : const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _add() async {
+    final amount = double.tryParse(_controller.text);
+    if (amount == null || amount <= 0) return;
+    if (widget.goal.id == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await _goalService.contributeToGoal(widget.goal.id!, amount);
+      if (mounted) {
+        Navigator.of(context).pop();
+        widget.onAdded();
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 }
