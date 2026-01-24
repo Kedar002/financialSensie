@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/repositories/user_repository.dart';
 import '../../../core/services/goal_service.dart';
+import '../../../core/services/emergency_fund_service.dart';
 import '../../../core/models/planned_expense.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/app_card.dart';
@@ -10,7 +11,7 @@ import '../../../shared/widgets/progress_bar.dart';
 import 'add_goal_screen.dart';
 
 /// Goals screen - list of planned expenses.
-/// Shows progress towards each goal.
+/// Shows progress towards each goal including emergency fund.
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({super.key});
 
@@ -21,10 +22,11 @@ class GoalsScreen extends StatefulWidget {
 class _GoalsScreenState extends State<GoalsScreen> {
   final _userRepo = UserRepository();
   final _goalService = GoalService();
+  final _emergencyFundService = EmergencyFundService();
 
   int? _userId;
   List<PlannedExpense> _goals = [];
-  GoalsSummary? _summary;
+  EmergencyFundStatus? _emergencyFundStatus;
   bool _isLoading = true;
 
   @override
@@ -41,7 +43,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       if (user != null) {
         _userId = user.id;
         _goals = await _goalService.getActiveGoals(user.id!);
-        _summary = await _goalService.getSummary(user.id!);
+        _emergencyFundStatus = await _emergencyFundService.getStatus(user.id!);
       }
     } finally {
       if (mounted) {
@@ -82,19 +84,17 @@ class _GoalsScreenState extends State<GoalsScreen> {
                       ),
                     ],
                   ),
-                  if (_summary != null && _goals.isNotEmpty) ...[
-                    const SizedBox(height: AppTheme.spacing24),
-                    _buildSummaryCard(),
-                  ],
                   const SizedBox(height: AppTheme.spacing24),
+                  // Emergency Fund - Always shown first as default goal
+                  if (_emergencyFundStatus != null) ...[
+                    _buildEmergencyFundCard(),
+                    const SizedBox(height: AppTheme.spacing16),
+                  ],
                 ]),
               ),
             ),
-            if (_goals.isEmpty)
-              SliverFillRemaining(
-                child: _buildEmptyState(),
-              )
-            else
+            // Other goals
+            if (_goals.isNotEmpty)
               SliverPadding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppTheme.spacing24,
@@ -114,96 +114,177 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   ),
                 ),
               ),
+            // Empty state only if no goals (emergency fund is always there)
+            if (_goals.isEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.all(AppTheme.spacing24),
+                sliver: SliverToBoxAdapter(
+                  child: _buildAddMoreGoals(),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSummaryCard() {
-    return AppCard(
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildEmergencyFundCard() {
+    final status = _emergencyFundStatus!;
+
+    return GestureDetector(
+      onTap: _showEmergencyFundActions,
+      child: AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Text(
-                  'Monthly commitment',
-                  style: Theme.of(context).textTheme.labelMedium,
+                Container(
+                  padding: const EdgeInsets.all(AppTheme.spacing8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.gray100,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                  ),
+                  child: const Icon(
+                    Icons.shield_outlined,
+                    size: 20,
+                    color: AppTheme.black,
+                  ),
                 ),
-                const SizedBox(height: AppTheme.spacing4),
+                const SizedBox(width: AppTheme.spacing12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Emergency Fund',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      Text(
+                        '${status.runwayMonths.toStringAsFixed(1)} months runway',
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ],
+                  ),
+                ),
                 Text(
-                  Formatters.currency(_summary!.totalMonthlyRequired),
+                  '${status.progressPercentage.toStringAsFixed(0)}%',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ],
             ),
-          ),
-          Container(
-            width: 1,
-            height: 40,
-            color: AppTheme.gray200,
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            const SizedBox(height: AppTheme.spacing16),
+            ProgressBar(progress: status.progressPercentage),
+            const SizedBox(height: AppTheme.spacing12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Total saved',
-                  style: Theme.of(context).textTheme.labelMedium,
+                  Formatters.currencyCompact(status.currentAmount),
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
-                const SizedBox(height: AppTheme.spacing4),
                 Text(
-                  Formatters.currencyCompact(_summary!.totalSavedAmount),
-                  style: Theme.of(context).textTheme.titleLarge,
+                  Formatters.currencyCompact(status.targetAmount),
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Padding(
-      padding: const EdgeInsets.all(AppTheme.spacing24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            'No goals yet',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: AppTheme.spacing8),
-          Text(
-            'Plan for future expenses and save automatically.',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppTheme.spacing24),
-          ElevatedButton(
-            onPressed: _addGoal,
-            child: const Text('Add Goal'),
-          ),
-        ],
-      ),
+  Widget _buildAddMoreGoals() {
+    return Column(
+      children: [
+        const SizedBox(height: AppTheme.spacing24),
+        Text(
+          'Add more goals',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: AppTheme.spacing8),
+        Text(
+          'Plan for vacations, purchases, or any future expenses.',
+          style: Theme.of(context).textTheme.bodyMedium,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppTheme.spacing24),
+        OutlinedButton(
+          onPressed: _addGoal,
+          child: const Text('Add Goal'),
+        ),
+      ],
     );
   }
 
-  void _addGoal() async {
+  void _showEmergencyFundActions() {
     if (_userId == null) return;
 
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => AddGoalScreen(userId: _userId!),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusMedium),
+        ),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spacing24,
+                  vertical: AppTheme.spacing8,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.shield_outlined, size: 20),
+                    const SizedBox(width: AppTheme.spacing8),
+                    Text(
+                      'Emergency Fund',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.add),
+                title: const Text('Add to fund'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _addToEmergencyFund();
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     );
+  }
 
-    if (result == true) {
-      _loadData();
-    }
+  void _addToEmergencyFund() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusMedium),
+        ),
+      ),
+      builder: (context) => _AddToEmergencyFundSheet(
+        userId: _userId!,
+        currentAmount: _emergencyFundStatus?.currentAmount ?? 0,
+        targetAmount: _emergencyFundStatus?.targetAmount ?? 0,
+        onAdded: _loadData,
+      ),
+    );
   }
 
   void _showGoalActions(PlannedExpense goal) {
@@ -330,6 +411,20 @@ class _GoalsScreenState extends State<GoalsScreen> {
       _loadData();
     }
   }
+
+  void _addGoal() async {
+    if (_userId == null) return;
+
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddGoalScreen(userId: _userId!),
+      ),
+    );
+
+    if (result == true) {
+      _loadData();
+    }
+  }
 }
 
 class _GoalCard extends StatelessWidget {
@@ -344,46 +439,46 @@ class _GoalCard extends StatelessWidget {
       onTap: onTap,
       child: AppCard(
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  goal.name,
-                  style: Theme.of(context).textTheme.titleLarge,
-                  overflow: TextOverflow.ellipsis,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    goal.name,
+                    style: Theme.of(context).textTheme.titleLarge,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              Text(
-                Formatters.daysRemaining(goal.daysRemaining),
-                style: Theme.of(context).textTheme.labelMedium,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppTheme.spacing16),
-          ProgressBar(progress: goal.progressPercentage),
-          const SizedBox(height: AppTheme.spacing12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                Formatters.currencyCompact(goal.currentAmount),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              Text(
-                Formatters.currencyCompact(goal.targetAmount),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppTheme.spacing12),
-          Text(
-            '${Formatters.currency(goal.monthlyRequired)}/month',
-            style: Theme.of(context).textTheme.labelMedium,
-          ),
-        ],
+                Text(
+                  Formatters.daysRemaining(goal.daysRemaining),
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppTheme.spacing16),
+            ProgressBar(progress: goal.progressPercentage),
+            const SizedBox(height: AppTheme.spacing12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  Formatters.currencyCompact(goal.currentAmount),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                Text(
+                  Formatters.currencyCompact(goal.targetAmount),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppTheme.spacing12),
+            Text(
+              '${Formatters.currency(goal.monthlyRequired)}/month',
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+          ],
         ),
       ),
     );
@@ -477,6 +572,108 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
 
     try {
       await _goalService.contributeToGoal(widget.goal.id!, amount);
+      if (mounted) {
+        Navigator.of(context).pop();
+        widget.onAdded();
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+}
+
+class _AddToEmergencyFundSheet extends StatefulWidget {
+  final int userId;
+  final double currentAmount;
+  final double targetAmount;
+  final VoidCallback onAdded;
+
+  const _AddToEmergencyFundSheet({
+    required this.userId,
+    required this.currentAmount,
+    required this.targetAmount,
+    required this.onAdded,
+  });
+
+  @override
+  State<_AddToEmergencyFundSheet> createState() => _AddToEmergencyFundSheetState();
+}
+
+class _AddToEmergencyFundSheetState extends State<_AddToEmergencyFundSheet> {
+  final _controller = TextEditingController();
+  final _fundService = EmergencyFundService();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = (widget.targetAmount - widget.currentAmount).clamp(0.0, double.infinity);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: AppTheme.spacing24,
+        right: AppTheme.spacing24,
+        top: AppTheme.spacing24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + AppTheme.spacing24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Add to Emergency Fund',
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          const SizedBox(height: AppTheme.spacing8),
+          Text(
+            '${Formatters.currency(remaining)} to reach target',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: AppTheme.spacing24),
+          TextField(
+            controller: _controller,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              hintText: 'Amount',
+              prefixText: '₹ ',
+            ),
+            autofocus: true,
+          ),
+          const SizedBox(height: AppTheme.spacing24),
+          ElevatedButton(
+            onPressed: _isLoading ? null : _add,
+            child: _isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.white,
+                    ),
+                  )
+                : const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _add() async {
+    final amount = double.tryParse(_controller.text);
+    if (amount == null || amount <= 0) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await _fundService.addToFund(widget.userId, amount);
       if (mounted) {
         Navigator.of(context).pop();
         widget.onAdded();
