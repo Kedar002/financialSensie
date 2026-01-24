@@ -15,6 +15,7 @@ import '../../onboarding/screens/expenses_setup_screen.dart';
 import '../../onboarding/screens/variable_budget_setup_screen.dart';
 import '../../onboarding/screens/savings_setup_screen.dart';
 import '../../onboarding/screens/welcome_screen.dart';
+import '../../home/screens/savings_history_screen.dart';
 
 /// Profile screen - view and edit financial setup.
 /// Shows income, expenses, and summary.
@@ -120,6 +121,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onEdit: _editSavings,
               ),
               _buildSavingsInfo(),
+              const SizedBox(height: AppTheme.spacing24),
+              _buildSavingsHistoryButton(),
               const SizedBox(height: AppTheme.spacing48),
               _buildDangerZone(),
               const SizedBox(height: AppTheme.spacing48),
@@ -440,6 +443,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Text(
         message,
         style: Theme.of(context).textTheme.bodyMedium,
+      ),
+    );
+  }
+
+  Widget _buildSavingsHistoryButton() {
+    return GestureDetector(
+      onTap: _viewSavingsHistory,
+      child: AppCard(
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppTheme.gray100,
+                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              ),
+              child: const Icon(
+                Icons.savings_outlined,
+                color: AppTheme.black,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: AppTheme.spacing16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Savings History',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: AppTheme.spacing4),
+                  Text(
+                    'Track your total savings over time',
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppTheme.gray400),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _viewSavingsHistory() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SavingsHistoryScreen(),
       ),
     );
   }

@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/budget_sheet_service.dart';
+import '../../../core/services/budget_snapshot_service.dart';
+import '../../../core/services/pdf_export_service.dart';
 import '../../../core/repositories/user_repository.dart';
 import '../../../shared/utils/formatters.dart';
+import 'budget_history_screen.dart';
 
 /// Budget Sheet - Complete monthly financial overview.
 /// Steve Jobs approved: Clean, minimal, purposeful.
@@ -16,8 +19,11 @@ class BudgetSheetScreen extends StatefulWidget {
 
 class _BudgetSheetScreenState extends State<BudgetSheetScreen> {
   final _budgetSheetService = BudgetSheetService();
+  final _snapshotService = BudgetSnapshotService();
+  final _pdfService = PdfExportService();
   final _userRepo = UserRepository();
 
+  int? _userId;
   BudgetSheet? _budgetSheet;
   bool _isLoading = true;
 
@@ -32,6 +38,7 @@ class _BudgetSheetScreenState extends State<BudgetSheetScreen> {
     try {
       final user = await _userRepo.getCurrentUser();
       if (user != null) {
+        _userId = user.id;
         _budgetSheet = await _budgetSheetService.getBudgetSheet(user.id!);
       }
     } finally {
@@ -60,6 +67,18 @@ class _BudgetSheetScreenState extends State<BudgetSheetScreen> {
               ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history, color: AppTheme.black),
+            onPressed: _viewHistory,
+            tooltip: 'View History',
+          ),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: AppTheme.black),
+            onPressed: _exportPdf,
+            tooltip: 'Export PDF',
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(
@@ -437,5 +456,34 @@ class _BudgetSheetScreenState extends State<BudgetSheetScreen> {
   String _capitalizeCategory(String category) {
     if (category.isEmpty) return category;
     return category[0].toUpperCase() + category.substring(1);
+  }
+
+  void _viewHistory() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const BudgetHistoryScreen(),
+      ),
+    );
+  }
+
+  Future<void> _exportPdf() async {
+    if (_userId == null || _budgetSheet == null) return;
+
+    try {
+      // First capture a snapshot of current budget
+      await _snapshotService.captureSnapshot(_userId!);
+
+      // Get the latest snapshot
+      final snapshot = await _snapshotService.getLatestSnapshot(_userId!);
+      if (snapshot != null) {
+        await _pdfService.previewPdf(snapshot);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error exporting PDF: $e')),
+        );
+      }
+    }
   }
 }

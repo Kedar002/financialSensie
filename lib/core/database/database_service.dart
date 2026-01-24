@@ -11,6 +11,7 @@ import 'tables/allocations_table.dart';
 import 'tables/planned_expenses_table.dart';
 import 'tables/transactions_table.dart';
 import 'tables/financial_snapshot_table.dart';
+import 'tables/savings_tracker_table.dart';
 
 /// Database service following Open/Closed Principle.
 /// To add new tables, simply add them to [_tables] list.
@@ -34,9 +35,10 @@ class DatabaseService {
     PlannedExpensesTable(),
     TransactionsTable(),
     FinancialSnapshotTable(),
+    SavingsTrackerTable(),
   ];
 
-  static const int _version = 2;
+  static const int _version = 4;
   static const String _dbName = 'financesensei.db';
 
   Future<Database> get database async {

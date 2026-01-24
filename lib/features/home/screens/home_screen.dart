@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/repositories/user_repository.dart';
 import '../../../core/services/safe_to_spend_service.dart';
+import '../../../core/services/budget_snapshot_service.dart';
+import '../../../core/services/savings_tracker_service.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../emergency_fund/screens/emergency_fund_screen.dart';
@@ -24,6 +26,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _userRepo = UserRepository();
   final _safeToSpendService = SafeToSpendService();
+  final _snapshotService = BudgetSnapshotService();
+  final _savingsService = SavingsTrackerService();
 
   int _currentIndex = 0;
   int? _userId;
@@ -46,6 +50,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _userId = user.id;
         _status = await _safeToSpendService.getStatus(user.id!);
         _recentTransactions = await _safeToSpendService.getRecentTransactions(user.id!, limit: 3);
+
+        // Auto-capture snapshot if previous cycle ended
+        await _snapshotService.captureIfNeeded(user.id!);
+
+        // Auto-record savings for current month
+        await _savingsService.recordCurrentMonth(user.id!);
       }
     } finally {
       if (mounted) {
