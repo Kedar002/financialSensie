@@ -1,5 +1,23 @@
 # FinanceSensei - Project Guidelines
 
+## CRITICAL RULES (READ FIRST)
+
+### 1. Documentation is MANDATORY
+Before implementing ANY feature or database change:
+- **Database changes** → Update `docs/DATABASE.md`
+- **New features** → Update `docs/FEATURES.md`
+- **Architecture changes** → Update `docs/ARCHITECTURE.md`
+
+**NO EXCEPTIONS. A new developer should understand the entire system by reading the docs folder.**
+
+### 2. UI Must Pass Steve Jobs Review
+Every screen MUST pass the checklist below before implementation. This is non-negotiable.
+
+### 3. Offline-First
+All data is stored locally. No network calls. The app must work without internet.
+
+---
+
 ## The Steve Jobs Design Standard
 
 Every UI element, screen, and interaction in this application must pass the **Steve Jobs Approval Test**. Before implementing ANY screen or UI component, verify it meets these non-negotiable principles:
@@ -14,7 +32,7 @@ Every UI element, screen, and interaction in this application must pass the **St
 
 ## UI Design Checklist (MANDATORY)
 
-Before creating ANY screen, component, or visual element, answer these questions. If ANY answer is "no", redesign before implementing.
+**STOP. Before creating ANY screen, component, or visual element, complete this checklist. If ANY answer is "no", redesign before implementing.**
 
 ### 1. Simplicity Test
 - [ ] Can a 5-year-old understand how to use this?
@@ -38,6 +56,11 @@ Before creating ANY screen, component, or visual element, answer these questions
 - [ ] Does this match the visual language of the rest of the app?
 - [ ] Are spacing, colors, and typography consistent?
 - [ ] Do similar actions look similar across the app?
+
+### 5. The Final Question
+- [ ] **If Steve Jobs saw this screen, would he ship it or throw it across the room?**
+
+**If you cannot check ALL boxes, DO NOT proceed with implementation.**
 
 ---
 
@@ -99,7 +122,7 @@ Before creating ANY screen, component, or visual element, answer these questions
 
 ## Forbidden Elements
 
-These are BANNED from this project:
+These are **BANNED** from this project:
 
 - Gradients (unless absolutely essential)
 - Drop shadows heavier than 0.1 opacity
@@ -114,53 +137,87 @@ These are BANNED from this project:
 - Bottom sheets for simple actions (use inline)
 - Nested scrolling containers
 - Horizontal scrolling lists (except for specific use cases like date pickers)
+- Splash screens with animations
+- Onboarding carousels (keep it to one screen max)
 
 ---
 
 ## Screen Implementation Process
 
-### Before Writing Code:
+### Phase 1: Design Review (BEFORE any code)
 
 1. **Sketch the screen on paper** - Can you draw it in 30 seconds?
 2. **List every element** - Can you justify each one?
 3. **Identify the ONE goal** - What should the user accomplish?
 4. **Remove 50% of elements** - Seriously, try it
-5. **Review against checklist above**
+5. **Complete the UI Design Checklist above**
+6. **Document in FEATURES.md** - Add the screen to documentation
 
-### During Implementation:
+### Phase 2: Implementation
 
 1. Build the minimal version first
 2. Add elements only when absence causes confusion
 3. Test on actual device, not just emulator
 4. Ask: "Would Steve approve?"
 
-### After Implementation:
+### Phase 3: Review
 
 1. Show to someone unfamiliar with the app
 2. Watch them use it without explanation
 3. Note any confusion or hesitation
 4. Simplify based on observations
+5. Update FEATURES.md with final implementation details
 
 ---
 
 ## File Structure
 
 ```
-lib/
-├── main.dart
-├── core/
-│   ├── theme/
-│   │   └── app_theme.dart
-│   └── constants/
-│       └── app_constants.dart
-├── features/
-│   └── [feature_name]/
-│       ├── screens/
+financesensei/
+├── docs/                        # MANDATORY DOCUMENTATION
+│   ├── DATABASE.md              # All database tables and schemas
+│   ├── FEATURES.md              # All features and their status
+│   └── ARCHITECTURE.md          # System architecture
+├── lib/
+│   ├── main.dart
+│   ├── core/
+│   │   ├── constants/
+│   │   │   └── app_constants.dart
+│   │   ├── database/
+│   │   │   ├── database_service.dart
+│   │   │   └── tables/          # Table definitions
+│   │   ├── models/              # Data models
+│   │   ├── repositories/        # Data access layer
+│   │   ├── services/            # Business logic
+│   │   └── theme/
+│   │       └── app_theme.dart
+│   ├── features/
+│   │   └── [feature_name]/
+│   │       ├── screens/
+│   │       ├── widgets/
+│   │       ├── models/
+│   │       └── services/
+│   └── shared/
 │       ├── widgets/
-│       └── models/
-└── shared/
-    └── widgets/
+│       └── utils/
+└── CLAUDE.md                    # This file
 ```
+
+---
+
+## Database Guidelines
+
+### Offline-First Rules
+1. ALL data stored in local SQLite database
+2. No network calls - app must work without internet
+3. Use repositories for all data access
+4. Models must have `fromMap()` and `toMap()` methods
+
+### Documentation Rules
+1. **ALWAYS** update `docs/DATABASE.md` when creating/modifying tables
+2. Include table purpose, columns, constraints, and relationships
+3. Document all migrations
+4. Keep the ER diagram updated
 
 ---
 
@@ -211,12 +268,21 @@ class BalanceCard extends StatelessWidget {
 
 ---
 
+## Commit Guidelines
+
+Before every commit:
+
+1. **UI changes?** → Did you complete the Steve Jobs checklist?
+2. **Database changes?** → Did you update `docs/DATABASE.md`?
+3. **New feature?** → Did you update `docs/FEATURES.md`?
+4. **Architecture change?** → Did you update `docs/ARCHITECTURE.md`?
+
+---
+
 ## Final Reminder
 
-Before every commit that includes UI changes, ask yourself:
-
-**"If Steve Jobs saw this screen, would he ship it or throw it across the room?"**
-
-If there's ANY doubt, simplify further.
-
 The goal is not to build a feature-rich app. The goal is to build an app that does a few things **perfectly**.
+
+Every screen should be so simple and intuitive that it feels inevitable - like there's no other way it could have been designed.
+
+**When in doubt, remove it.**
