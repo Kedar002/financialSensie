@@ -4,19 +4,23 @@ import '../../../core/theme/app_theme.dart';
 import '../../goals/models/goal.dart';
 import '../models/expense.dart';
 
-/// Add expense screen.
+/// Add/Edit expense screen.
 /// Select category, then:
 /// - Needs/Wants: Select subcategory from Profile settings
 /// - Savings: Select destination (Emergency Fund or a Goal)
 class AddExpenseScreen extends StatefulWidget {
   final DateTime date;
   final List<Goal> goals; // User's savings goals
+  final Expense? existingExpense; // For edit mode
 
   const AddExpenseScreen({
     super.key,
     required this.date,
     required this.goals,
+    this.existingExpense,
   });
+
+  bool get isEditMode => existingExpense != null;
 
   @override
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
@@ -34,11 +38,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   void initState() {
     super.initState();
-    // Set default subcategory for Needs
-    _selectedSubcategory = ExpenseSubcategory.otherFixed;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _amountFocusNode.requestFocus();
-    });
+
+    if (widget.existingExpense != null) {
+      // Edit mode: pre-fill with existing expense data
+      final expense = widget.existingExpense!;
+      _amountController.text = expense.amount.toStringAsFixed(
+        expense.amount.truncateToDouble() == expense.amount ? 0 : 2,
+      );
+      _noteController.text = expense.note ?? '';
+      _selectedCategory = expense.category;
+      _selectedSubcategory = expense.subcategory;
+      _selectedSavingsDestination = expense.savingsDestination;
+    } else {
+      // Add mode: set default subcategory for Needs (fixed expenses)
+      _selectedSubcategory = ExpenseSubcategory.rentEmi;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _amountFocusNode.requestFocus();
+      });
+    }
   }
 
   @override
@@ -107,7 +124,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           ),
         ),
         Text(
-          _getDateLabel(),
+          widget.isEditMode ? 'Edit Expense' : _getDateLabel(),
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(width: 50),
@@ -180,10 +197,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     // Default to Emergency Fund for savings
                     _selectedSubcategory = null;
                     _selectedSavingsDestination = SavingsDestination.emergencyFund();
+                  } else if (category == ExpenseCategory.needs) {
+                    // Default to first fixed expense (Rent/EMI)
+                    _selectedSubcategory = ExpenseSubcategory.rentEmi;
+                    _selectedSavingsDestination = null;
                   } else {
-                    // Reset to default subcategory for the new category
-                    final subs = ExpenseSubcategory.forCategory(category);
-                    _selectedSubcategory = subs.isNotEmpty ? subs.last : null;
+                    // Wants: Default to first variable budget item (Food & Dining)
+                    _selectedSubcategory = ExpenseSubcategory.foodDining;
                     _selectedSavingsDestination = null;
                   }
                 });
@@ -215,6 +235,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Widget _buildSubcategorySelector() {
     final subcategories = ExpenseSubcategory.forCategory(_selectedCategory);
 
+    // Needs: Use chips (only 3 options)
+    // Wants: Use dropdown (6 options)
+    if (_selectedCategory == ExpenseCategory.needs) {
+      return _buildSubcategoryChips(subcategories);
+    } else {
+      return _buildSubcategoryDropdown(subcategories);
+    }
+  }
+
+  Widget _buildSubcategoryChips(List<ExpenseSubcategory> subcategories) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -254,6 +284,48 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               ),
             );
           }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubcategoryDropdown(List<ExpenseSubcategory> subcategories) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Category',
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+        const SizedBox(height: AppTheme.spacing12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing16),
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            border: Border.all(color: AppTheme.gray200),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<ExpenseSubcategory>(
+              value: _selectedSubcategory,
+              isExpanded: true,
+              icon: const Icon(Icons.keyboard_arrow_down, color: AppTheme.gray600),
+              style: Theme.of(context).textTheme.bodyLarge,
+              dropdownColor: AppTheme.white,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              items: subcategories.map((sub) {
+                return DropdownMenuItem<ExpenseSubcategory>(
+                  value: sub,
+                  child: Text(sub.label),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _selectedSubcategory = value);
+                }
+              },
+            ),
+          ),
         ),
       ],
     );
@@ -404,7 +476,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       duration: const Duration(milliseconds: 200),
       child: ElevatedButton(
         onPressed: _canSave ? _save : null,
-        child: const Text('Done'),
+        child: Text(widget.isEditMode ? 'Save Changes' : 'Done'),
       ),
     );
   }
@@ -438,23 +510,52 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     Expense expense;
 
-    if (_selectedCategory == ExpenseCategory.savings) {
-      if (_selectedSavingsDestination == null) return;
-      expense = Expense.createSavings(
-        amount: amount,
-        destination: _selectedSavingsDestination!,
-        note: note,
-        date: widget.date,
-      );
+    if (widget.isEditMode) {
+      // Edit mode: update existing expense
+      final existing = widget.existingExpense!;
+      if (_selectedCategory == ExpenseCategory.savings) {
+        if (_selectedSavingsDestination == null) return;
+        expense = Expense(
+          id: existing.id,
+          amount: amount,
+          category: ExpenseCategory.savings,
+          savingsDestination: _selectedSavingsDestination,
+          note: note,
+          date: existing.date,
+          createdAt: existing.createdAt,
+        );
+      } else {
+        if (_selectedSubcategory == null) return;
+        expense = Expense(
+          id: existing.id,
+          amount: amount,
+          category: _selectedCategory,
+          subcategory: _selectedSubcategory,
+          note: note,
+          date: existing.date,
+          createdAt: existing.createdAt,
+        );
+      }
     } else {
-      if (_selectedSubcategory == null) return;
-      expense = Expense.create(
-        amount: amount,
-        category: _selectedCategory,
-        subcategory: _selectedSubcategory!,
-        note: note,
-        date: widget.date,
-      );
+      // Add mode: create new expense
+      if (_selectedCategory == ExpenseCategory.savings) {
+        if (_selectedSavingsDestination == null) return;
+        expense = Expense.createSavings(
+          amount: amount,
+          destination: _selectedSavingsDestination!,
+          note: note,
+          date: widget.date,
+        );
+      } else {
+        if (_selectedSubcategory == null) return;
+        expense = Expense.create(
+          amount: amount,
+          category: _selectedCategory,
+          subcategory: _selectedSubcategory!,
+          note: note,
+          date: widget.date,
+        );
+      }
     }
 
     Navigator.pop(context, expense);

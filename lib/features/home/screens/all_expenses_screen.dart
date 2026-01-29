@@ -2,18 +2,26 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/advanced_date_picker.dart';
+import '../../goals/models/goal.dart';
 import '../models/expense.dart';
+import 'add_expense_screen.dart';
 
 /// All expenses screen.
 /// Filter by category and dates.
 /// Clean list grouped by date.
-/// Steve Jobs would approve.
+/// Tap expense to edit or delete.
 class AllExpensesScreen extends StatefulWidget {
   final List<Expense> expenses;
+  final List<Goal> goals;
+  final void Function(Expense expense)? onExpenseUpdated;
+  final void Function(String expenseId)? onExpenseDeleted;
 
   const AllExpensesScreen({
     super.key,
     required this.expenses,
+    required this.goals,
+    this.onExpenseUpdated,
+    this.onExpenseDeleted,
   });
 
   @override
@@ -417,43 +425,209 @@ class _AllExpensesScreenState extends State<AllExpensesScreen> {
   }
 
   Widget _buildExpenseItem(BuildContext context, Expense expense) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppTheme.spacing12),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 40,
-            decoration: BoxDecoration(
-              color: _getCategoryColor(expense.category),
-              borderRadius: BorderRadius.circular(2),
+    return GestureDetector(
+      onTap: () => _showExpenseOptions(context, expense),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: AppTheme.spacing12),
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _getCategoryColor(expense.category),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          const SizedBox(width: AppTheme.spacing12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  expense.note ?? expense.category.label,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  expense.category.label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppTheme.gray500,
+            const SizedBox(width: AppTheme.spacing12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    expense.note ?? expense.category.label,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    expense.destinationLabel,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.gray500,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              Formatters.currency(expense.amount),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(width: AppTheme.spacing8),
+            const Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: AppTheme.gray300,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showExpenseOptions(BuildContext context, Expense expense) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusMedium)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.spacing24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _getCategoryColor(expense.category),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.spacing12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          expense.note ?? expense.category.label,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: AppTheme.spacing4),
+                        Text(
+                          '${expense.destinationLabel} • ${_formatDate(expense.date)}',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: AppTheme.gray500,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    Formatters.currency(expense.amount),
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppTheme.spacing24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _editExpense(expense);
+                      },
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Edit'),
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.spacing12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _confirmDelete(expense);
+                      },
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: const Text('Delete'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.gray600,
                       ),
-                ),
-              ],
-            ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          Text(
-            Formatters.currency(expense.amount),
-            style: Theme.of(context).textTheme.titleMedium,
+        ),
+      ),
+    );
+  }
+
+  void _editExpense(Expense expense) async {
+    final result = await Navigator.push<Expense>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddExpenseScreen(
+          date: expense.date,
+          goals: widget.goals,
+          existingExpense: expense,
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+
+    if (result != null && mounted) {
+      widget.onExpenseUpdated?.call(result);
+    }
+  }
+
+  void _confirmDelete(Expense expense) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusMedium)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.spacing24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Delete expense?',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: AppTheme.spacing8),
+              Text(
+                'This will permanently remove "${expense.note ?? expense.category.label}" (${Formatters.currency(expense.amount)}).',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.gray600,
+                    ),
+              ),
+              const SizedBox(height: AppTheme.spacing24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.spacing12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        widget.onExpenseDeleted?.call(expense.id);
+                      },
+                      child: const Text('Delete'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

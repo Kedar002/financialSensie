@@ -25,12 +25,10 @@ enum ExpenseSubcategory {
   utilitiesBills,
   otherFixed,
 
-  // Needs - Variable Essentials (from Profile → Variable Budget)
+  // Wants - Variable Budget (from Profile → Variable Budget)
   foodDining,
   transport,
   healthWellness,
-
-  // Wants - Variable Lifestyle (from Profile → Variable Budget)
   shopping,
   entertainment,
   otherVariable;
@@ -61,13 +59,15 @@ enum ExpenseSubcategory {
   /// Which main category this subcategory belongs to.
   ExpenseCategory get parentCategory {
     switch (this) {
+      // Needs = Fixed Expenses only
       case ExpenseSubcategory.rentEmi:
       case ExpenseSubcategory.utilitiesBills:
       case ExpenseSubcategory.otherFixed:
+        return ExpenseCategory.needs;
+      // Wants = All Variable Budget items
       case ExpenseSubcategory.foodDining:
       case ExpenseSubcategory.transport:
       case ExpenseSubcategory.healthWellness:
-        return ExpenseCategory.needs;
       case ExpenseSubcategory.shopping:
       case ExpenseSubcategory.entertainment:
       case ExpenseSubcategory.otherVariable:
@@ -207,5 +207,26 @@ class Expense {
       return savingsDestination?.label ?? 'Savings';
     }
     return subcategory?.label ?? category.label;
+  }
+
+  /// Create a copy with updated fields.
+  Expense copyWith({
+    double? amount,
+    ExpenseCategory? category,
+    ExpenseSubcategory? subcategory,
+    SavingsDestination? savingsDestination,
+    String? note,
+    DateTime? date,
+  }) {
+    return Expense(
+      id: id,
+      amount: amount ?? this.amount,
+      category: category ?? this.category,
+      subcategory: subcategory ?? this.subcategory,
+      savingsDestination: savingsDestination ?? this.savingsDestination,
+      note: note ?? this.note,
+      date: date ?? this.date,
+      createdAt: createdAt,
+    );
   }
 }

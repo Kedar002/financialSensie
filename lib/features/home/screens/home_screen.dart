@@ -532,8 +532,78 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => AllExpensesScreen(expenses: _expenses),
+        builder: (_) => AllExpensesScreen(
+          expenses: _expenses,
+          goals: _goals,
+          onExpenseUpdated: _onExpenseUpdated,
+          onExpenseDeleted: _onExpenseDeleted,
+        ),
       ),
     );
+  }
+
+  void _onExpenseUpdated(Expense updatedExpense) {
+    setState(() {
+      final index = _expenses.indexWhere((e) => e.id == updatedExpense.id);
+      if (index != -1) {
+        final oldExpense = _expenses[index];
+
+        // If the old expense was a savings to a goal, subtract from goal
+        if (oldExpense.category == ExpenseCategory.savings &&
+            oldExpense.savingsDestination != null &&
+            oldExpense.savingsDestination!.isGoal) {
+          final goalIndex = _goals.indexWhere(
+            (g) => g.id == oldExpense.savingsDestination!.goalId,
+          );
+          if (goalIndex != -1) {
+            _goals[goalIndex] = _goals[goalIndex].copyWith(
+              currentAmount: _goals[goalIndex].currentAmount - oldExpense.amount,
+            );
+          }
+        }
+
+        // Update the expense
+        _expenses[index] = updatedExpense;
+
+        // If the new expense is a savings to a goal, add to goal
+        if (updatedExpense.category == ExpenseCategory.savings &&
+            updatedExpense.savingsDestination != null &&
+            updatedExpense.savingsDestination!.isGoal) {
+          final goalIndex = _goals.indexWhere(
+            (g) => g.id == updatedExpense.savingsDestination!.goalId,
+          );
+          if (goalIndex != -1) {
+            _goals[goalIndex] = _goals[goalIndex].copyWith(
+              currentAmount: _goals[goalIndex].currentAmount + updatedExpense.amount,
+            );
+          }
+        }
+      }
+    });
+  }
+
+  void _onExpenseDeleted(String expenseId) {
+    setState(() {
+      final index = _expenses.indexWhere((e) => e.id == expenseId);
+      if (index != -1) {
+        final expense = _expenses[index];
+
+        // If the expense was a savings to a goal, subtract from goal
+        if (expense.category == ExpenseCategory.savings &&
+            expense.savingsDestination != null &&
+            expense.savingsDestination!.isGoal) {
+          final goalIndex = _goals.indexWhere(
+            (g) => g.id == expense.savingsDestination!.goalId,
+          );
+          if (goalIndex != -1) {
+            _goals[goalIndex] = _goals[goalIndex].copyWith(
+              currentAmount: _goals[goalIndex].currentAmount - expense.amount,
+            );
+          }
+        }
+
+        _expenses.removeAt(index);
+      }
+    });
   }
 }

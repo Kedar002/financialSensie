@@ -14,7 +14,9 @@
       "Bash(taskkill:*)",
       "Bash(flutter clean:*)",
       "Bash(xxd:*)",
-      "Bash(git rebase:*)"
+      "Bash(git rebase:*)",
+      "Bash(copy \"C:\\\\Users\\\\Kedar\\\\Desktop\\\\financeSensie.png\" \"C:\\\\Users\\\\Kedar\\\\Desktop\\\\Personal Projects\\\\financesensei\\\\assets\\\\icon\\\\app_icon.png\")",
+      "Bash(dart run:*)"
     ]
   }
 }
