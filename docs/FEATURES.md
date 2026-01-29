@@ -75,6 +75,12 @@ Full-screen modal for logging expenses. Minimal, focused on one action: enter wh
 - **Amount Input** - Large currency input with ₹ prefix
   - Auto-focus on open
   - Supports decimals (2 decimal places)
+- **Category Selector** - Segmented control with three options
+  - Needs, Wants, Savings
+  - Selected: Black background, white text
+  - Unselected: Gray text, transparent background
+  - Smooth 200ms animation on selection
+  - Default: "Needs" (most common)
 - **Note Input** - Optional description field
   - Placeholder: "What was this for?"
 - **Done Button** - Disabled until valid amount entered
@@ -83,8 +89,8 @@ Full-screen modal for logging expenses. Minimal, focused on one action: enter wh
 **Design Principles Applied:**
 - One action per screen
 - Large, easy-to-use input
-- Minimal fields (just amount + optional note)
-- No categories (simplicity over organization)
+- Three category buckets (Needs/Wants/Savings - aligned with 50/30/20 rule)
+- Clean segmented control - no icons, just text
 - Auto-focus for immediate input
 
 **Files:**
@@ -186,6 +192,7 @@ User settings and configuration editing.
 | Model | Purpose | File Path |
 |-------|---------|-----------|
 | Expense | Represents a single expense entry | `lib/features/home/models/expense.dart` |
+| ExpenseCategory | Enum: needs, wants, savings | `lib/features/home/models/expense.dart` |
 
 ---
 

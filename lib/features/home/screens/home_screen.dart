@@ -249,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildExpenseItem(Expense expense) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppTheme.spacing12),
+      padding: const EdgeInsets.only(bottom: AppTheme.spacing16),
       child: Row(
         children: [
           Expanded(
@@ -257,14 +257,33 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  expense.note ?? 'Expense',
+                  expense.note ?? expense.category.label,
                   style: Theme.of(context).textTheme.bodyLarge,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                Text(
-                  _formatExpenseDate(expense.date),
-                  style: Theme.of(context).textTheme.labelMedium,
+                const SizedBox(height: AppTheme.spacing4),
+                Row(
+                  children: [
+                    Text(
+                      expense.category.label,
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                    const SizedBox(width: AppTheme.spacing8),
+                    Container(
+                      width: 3,
+                      height: 3,
+                      decoration: const BoxDecoration(
+                        color: AppTheme.gray400,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.spacing8),
+                    Text(
+                      _formatExpenseDate(expense.date),
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ],
                 ),
               ],
             ),

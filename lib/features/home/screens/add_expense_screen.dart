@@ -22,6 +22,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
   final _amountFocusNode = FocusNode();
+  ExpenseCategory _selectedCategory = ExpenseCategory.needs;
 
   @override
   void initState() {
@@ -57,7 +58,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               _buildHeader(),
               const SizedBox(height: AppTheme.spacing48),
               _buildAmountInput(),
-              const SizedBox(height: AppTheme.spacing24),
+              const SizedBox(height: AppTheme.spacing32),
+              _buildCategorySelector(),
+              const SizedBox(height: AppTheme.spacing32),
               _buildNoteInput(),
               const Spacer(),
               _buildSaveButton(),
@@ -138,6 +141,44 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
+  Widget _buildCategorySelector() {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: AppTheme.gray100,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: ExpenseCategory.values.map((category) {
+          final isSelected = _selectedCategory == category;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedCategory = category),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppTheme.black : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                ),
+                child: Center(
+                  child: Text(
+                    category.label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: isSelected ? AppTheme.white : AppTheme.gray600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _buildNoteInput() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,6 +241,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     final expense = Expense.create(
       amount: amount,
+      category: _selectedCategory,
       note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
       date: widget.date,
     );
