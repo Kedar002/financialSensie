@@ -198,6 +198,7 @@ Bottom Navigation (4 tabs)
 
 ## Related Documentation
 
+- **[APP_OVERVIEW.md](./APP_OVERVIEW.md)** - Master documentation (start here)
 - **[DATA_FLOW.md](./DATA_FLOW.md)** - Detailed budget flow and connections
 - **[FEATURES.md](./FEATURES.md)** - Feature specifications and status
 - **[DATABASE.md](./DATABASE.md)** - Database schema (pending implementation)
