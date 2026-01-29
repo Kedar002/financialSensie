@@ -104,6 +104,38 @@ Full-screen modal for logging expenses. Minimal, focused on one action: enter wh
 
 ---
 
+### 1.2 Monthly Budget Screen
+
+**Status:** Completed
+
+**Description:**
+Shows the 50-30-20 budget breakdown with spending progress for each category.
+
+**Navigation:** Tap "This month" section on Home screen (indicated by chevron)
+
+**Key Elements:**
+- **Overview** - Total budget, spent, and remaining
+- **The 50-30-20 Rule** - Three budget buckets
+  - Needs (50%) - Essentials like food, transport, bills
+  - Wants (30%) - Lifestyle like dining, entertainment
+  - Savings (20%) - Future like investments, emergency fund
+  - Each shows: Budget amount, progress bar, spent vs left
+- **Your Spending** - Actual spending visualization
+  - Horizontal stacked bar (black/gray/light)
+  - Legend with percentages
+
+**Design Principles Applied:**
+- Clean section headers
+- Progress bars for each category
+- No pie charts (too decorative)
+- Stacked bar for actual spending (simple, clear)
+- Gray tones only (black, gray400, gray200)
+
+**Files:**
+- `lib/features/home/screens/monthly_budget_screen.dart`
+
+---
+
 ### 2. Onboarding Flow
 
 **Status:** Completed
@@ -253,6 +285,7 @@ Explains the app philosophy and budget calculation logic in simple, human terms.
 |-------------|---------|-----------|--------|
 | Home Screen | Daily Spending View | `lib/features/home/screens/home_screen.dart` | Completed |
 | Add Expense Screen | Expense Logging | `lib/features/home/screens/add_expense_screen.dart` | Completed |
+| Monthly Budget Screen | 50-30-20 Breakdown | `lib/features/home/screens/monthly_budget_screen.dart` | Completed |
 | Emergency Fund Screen | Emergency Fund Tracker | `lib/features/emergency_fund/screens/emergency_fund_screen.dart` | Completed |
 | Goals Screen | Goals Tracker | `lib/features/goals/screens/goals_screen.dart` | Completed |
 | Add Goal Screen | Goals Tracker | `lib/features/goals/screens/add_goal_screen.dart` | Completed |

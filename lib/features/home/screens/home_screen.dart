@@ -9,6 +9,7 @@ import '../../goals/screens/goals_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../models/expense.dart';
 import 'add_expense_screen.dart';
+import 'monthly_budget_screen.dart';
 
 /// Home screen - THE core screen.
 /// One focus: How much can you spend?
@@ -196,41 +197,55 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCycleProgress(BudgetSnapshot snapshot) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'This month',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            Text(
-              '${(snapshot.spentProgress * 100).clamp(0, 999).toInt()}%',
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
-          ],
-        ),
-        const SizedBox(height: AppTheme.spacing12),
-        _buildProgressBar(snapshot.spentProgress),
-        const SizedBox(height: AppTheme.spacing16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildStatColumn('Budget', Formatters.currency(snapshot.totalBudget)),
-            _buildStatColumn('Spent', Formatters.currency(snapshot.totalSpent)),
-            _buildStatColumn(
-              'Left',
-              snapshot.isOverBudget
-                  ? '-${Formatters.currency(snapshot.overBudgetAmount)}'
-                  : Formatters.currency(snapshot.remainingBudget),
-              highlight: true,
-              negative: snapshot.isOverBudget,
-            ),
-          ],
-        ),
-      ],
+    return GestureDetector(
+      onTap: _viewMonthlyBudget,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'This month',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              Row(
+                children: [
+                  Text(
+                    '${(snapshot.spentProgress * 100).clamp(0, 999).toInt()}%',
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                  const SizedBox(width: AppTheme.spacing8),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: AppTheme.gray400,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spacing12),
+          _buildProgressBar(snapshot.spentProgress),
+          const SizedBox(height: AppTheme.spacing16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildStatColumn('Budget', Formatters.currency(snapshot.totalBudget)),
+              _buildStatColumn('Spent', Formatters.currency(snapshot.totalSpent)),
+              _buildStatColumn(
+                'Left',
+                snapshot.isOverBudget
+                    ? '-${Formatters.currency(snapshot.overBudgetAmount)}'
+                    : Formatters.currency(snapshot.remainingBudget),
+                highlight: true,
+                negative: snapshot.isOverBudget,
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -442,5 +457,17 @@ class _HomeScreenState extends State<HomeScreen> {
         _expenses.add(expense);
       });
     }
+  }
+
+  void _viewMonthlyBudget() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MonthlyBudgetScreen(
+          totalBudget: _monthlyVariableBudget,
+          expenses: _expenses,
+        ),
+      ),
+    );
   }
 }
