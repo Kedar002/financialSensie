@@ -9,6 +9,7 @@ import '../../goals/screens/goals_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../models/expense.dart';
 import 'add_expense_screen.dart';
+import 'all_expenses_screen.dart';
 import 'monthly_budget_screen.dart';
 
 /// Home screen - THE core screen.
@@ -305,9 +306,23 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Recent',
-          style: Theme.of(context).textTheme.titleLarge,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Recent',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            GestureDetector(
+              onTap: _viewAllExpenses,
+              child: Text(
+                'View all',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      decoration: TextDecoration.underline,
+                    ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: AppTheme.spacing16),
         ...expenses.map((expense) => _buildExpenseItem(expense)),
@@ -467,6 +482,15 @@ class _HomeScreenState extends State<HomeScreen> {
           totalBudget: _monthlyVariableBudget,
           expenses: _expenses,
         ),
+      ),
+    );
+  }
+
+  void _viewAllExpenses() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AllExpensesScreen(expenses: _expenses),
       ),
     );
   }

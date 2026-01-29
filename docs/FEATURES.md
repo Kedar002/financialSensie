@@ -48,6 +48,7 @@ The core screen of the app. Shows how much the user can safely spend today with 
 - **Recent Expenses** - List of last 5 expenses
   - Shows note (or "Expense" if none), date, and amount
   - Clean row layout with minimal information
+  - "View all" link to see all expenses
 - **FAB (Floating Action Button)** - Quick expense logging
   - Opens full-screen Add Expense screen
 
@@ -133,6 +134,44 @@ Shows the 50-30-20 budget breakdown with spending progress for each category.
 
 **Files:**
 - `lib/features/home/screens/monthly_budget_screen.dart`
+
+---
+
+### 1.3 All Expenses Screen
+
+**Status:** Completed
+
+**Description:**
+Full list of all expenses with advanced filtering by category and dates. Supports single date, multiple dates, and date range selection.
+
+**Navigation:** Tap "View all" link in Recent section on Home screen
+
+**Key Elements:**
+- **Category Filter** - Four chips (All, Needs, Wants, Savings)
+  - Selected: Black fill, white text
+  - Unselected: Gray100 fill, gray text
+- **Date Filter** - Expandable calendar with selection modes
+  - Single date selection
+  - Multiple date selection (tap to toggle)
+  - Date range selection (start to end)
+  - Month/year quick picker
+- **Summary** - Shows count and total for current filters
+- **Grouped List** - Expenses grouped by date
+  - Date headers with daily total (Today, Yesterday, or weekday + date)
+  - Color-coded left border (black for Needs, gray400 for Wants, gray200 for Savings)
+  - Note, category label, and amount
+
+**Design Principles Applied:**
+- Simple filter chips (not dropdowns)
+- Calendar hides by default, expands on tap
+- Three selection modes with clear toggle
+- Grouped by day (not a flat list)
+- Color coding via left border only
+- Empty state with context-aware message
+
+**Files:**
+- `lib/features/home/screens/all_expenses_screen.dart`
+- `lib/shared/widgets/advanced_date_picker.dart`
 
 ---
 
@@ -286,6 +325,7 @@ Explains the app philosophy and budget calculation logic in simple, human terms.
 | Home Screen | Daily Spending View | `lib/features/home/screens/home_screen.dart` | Completed |
 | Add Expense Screen | Expense Logging | `lib/features/home/screens/add_expense_screen.dart` | Completed |
 | Monthly Budget Screen | 50-30-20 Breakdown | `lib/features/home/screens/monthly_budget_screen.dart` | Completed |
+| All Expenses Screen | Expense History | `lib/features/home/screens/all_expenses_screen.dart` | Completed |
 | Emergency Fund Screen | Emergency Fund Tracker | `lib/features/emergency_fund/screens/emergency_fund_screen.dart` | Completed |
 | Goals Screen | Goals Tracker | `lib/features/goals/screens/goals_screen.dart` | Completed |
 | Add Goal Screen | Goals Tracker | `lib/features/goals/screens/add_goal_screen.dart` | Completed |
@@ -324,6 +364,7 @@ Explains the app philosophy and budget calculation logic in simple, human terms.
 | Widget | Purpose | File Path |
 |--------|---------|-----------|
 | MinimalCalendar | Date selection with week/month views | `lib/shared/widgets/minimal_calendar.dart` |
+| AdvancedDatePicker | Multi-mode date picker (single/multiple/range) | `lib/shared/widgets/advanced_date_picker.dart` |
 | AppCard | Clean card container with subtle border | `lib/shared/widgets/app_card.dart` |
 | ProgressBar | Simple progress indicator | `lib/shared/widgets/progress_bar.dart` |
 | AmountDisplay | Formatted currency display | `lib/shared/widgets/amount_display.dart` |
