@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import '../../../core/models/cycle_settings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/formatters.dart';
+import '../../../shared/widgets/app_card.dart';
 import '../../onboarding/screens/income_setup_screen.dart';
 import '../../onboarding/screens/expenses_setup_screen.dart';
 import '../../onboarding/screens/variable_budget_setup_screen.dart';
 import '../../onboarding/screens/savings_setup_screen.dart';
+import '../../plan/screens/financial_plan_screen.dart';
 import 'cycle_settings_screen.dart';
 import 'knowledge_screen.dart';
 
@@ -37,6 +39,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'You',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
+            const SizedBox(height: AppTheme.spacing24),
+            _buildFinancialPlanCard(context),
             const SizedBox(height: AppTheme.spacing32),
             _buildSetupSection(context),
             const SizedBox(height: AppTheme.spacing48),
@@ -44,6 +48,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: AppTheme.spacing64),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFinancialPlanCard(BuildContext context) {
+    return AppCard(
+      onTap: () => _openFinancialPlan(context),
+      padding: const EdgeInsets.all(AppTheme.spacing20),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppTheme.black,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+            child: const Icon(
+              Icons.trending_up,
+              color: AppTheme.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: AppTheme.spacing16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Financial Plan',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: AppTheme.spacing4),
+                Text(
+                  '10 steps to financial freedom',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.gray500,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right,
+            color: AppTheme.gray400,
+            size: 20,
+          ),
+        ],
       ),
     );
   }
@@ -234,6 +286,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const KnowledgeScreen(),
+      ),
+    );
+  }
+
+  void _openFinancialPlan(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const FinancialPlanScreen(),
       ),
     );
   }

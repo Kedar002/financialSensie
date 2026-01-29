@@ -218,6 +218,65 @@ Daily Budget (30-day month):
 
 ---
 
+---
+
+## The 10-Step Financial Plan
+
+The Financial Plan ties all features together into a coherent journey:
+
+```
+THE 10 STEPS TO FINANCIAL FREEDOM
+─────────────────────────────────────────────────────────
+
+Step 1: Know Your Income
+        └── Profile → Income Setup
+
+Step 2: Choose Budget Rule (50-30-20)
+        └── Automatic allocation
+
+Step 3: List Fixed Needs
+        └── Profile → Fixed Expenses
+
+Step 4: Decide Wants
+        └── Profile → Variable Budget
+
+Step 5: Set SMART Goals
+        └── Goals Tab
+
+Step 6: Build Emergency Fund FIRST
+        └── Safety Tab (3-6 months of needs)
+
+Step 7: Handle Debt Smartly
+        └── Financial Plan → Debt Screen
+        └── Priority: High interest > Medium > Low
+
+Step 8: Start Saving & Investing
+        └── 20% of Variable Budget
+
+Step 9: Automate Everything
+        └── Auto-debit, Auto-pay, Auto-invest
+
+Step 10: Track Monthly & Adjust
+         └── Review spending, adjust goals
+```
+
+### Debt Priority System
+
+| Priority | Interest Rate | Action |
+|----------|---------------|--------|
+| High | >15% | Pay first (credit cards, personal loans) |
+| Medium | 8-15% | Pay after high priority |
+| Low | <8% | Maintain minimum payments (home loan) |
+
+### Golden Rules
+- ❌ Don't invest without emergency fund
+- ❌ Don't ignore high-interest debt
+- ✅ Increase savings when income rises
+- ✅ Keep lifestyle inflation under control
+- ✅ Review plan every 3-6 months
+
+---
+
 ## Key Principles
 
 ### 1. Fixed Expenses are Invisible

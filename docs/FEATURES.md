@@ -476,9 +476,13 @@ Full-screen modal for creating a new savings goal with timeline-based categoriza
 **Status:** Completed
 
 **Description:**
-Minimal settings screen showing financial configuration and access to knowledge base.
+Minimal settings screen showing financial configuration, access to Financial Plan, and knowledge base.
 
 **Key Elements:**
+- **Financial Plan Card** - Prominent card at top
+  - Icon + "Financial Plan" title
+  - "10 steps to financial freedom" subtitle
+  - Navigates to Financial Plan screen
 - **Setup Section** - Five tappable rows (iOS Settings style)
   - Income → Edit income screen
   - Fixed Expenses → Edit expenses screen
@@ -493,11 +497,116 @@ Minimal settings screen showing financial configuration and access to knowledge 
 - Chevron indicators for navigation
 - Values shown inline (no cards)
 - Minimal vertical dividers
-- No summary cards or calculated values
-- No danger zone / delete options
+- Financial Plan card is the hero element
 
 **Files:**
 - `lib/features/profile/screens/profile_screen.dart`
+
+---
+
+### 5.1 Financial Plan Screen
+
+**Status:** Completed
+
+**Description:**
+The 10-step roadmap to financial freedom. Shows progress through each step with completion tracking. Central hub that connects all financial features.
+
+**The 10 Steps:**
+| Step | Title | Description | Connected To |
+|------|-------|-------------|--------------|
+| 1 | Know Your Income | Monthly take-home | Profile → Income |
+| 2 | Budget Rule | 50-30-20 allocation | Monthly Budget |
+| 3 | Fixed Needs | Non-negotiable expenses | Profile → Fixed Expenses |
+| 4 | Lifestyle Wants | Adjustable spending | Profile → Variable Budget |
+| 5 | Set Goals | Short, mid & long-term | Goals Tab |
+| 6 | Emergency Fund | 3-6 months of needs | Safety Tab |
+| 7 | Handle Debt | Pay high-interest first | Debt Screen (new) |
+| 8 | Save & Invest | Build your future | 20% allocation |
+| 9 | Automate | Remove discipline problems | Guidance |
+| 10 | Monthly Review | Track & adjust | Ongoing |
+
+**Key Elements:**
+- **Progress Card** - Shows X/10 steps complete with progress bar
+- **Steps List** - All 10 steps with status indicators
+  - Complete: Black circle with checkmark
+  - Current: Number with black text
+  - Pending: Number with gray text
+- **Step Details** - Tap any step for info bottom sheet
+  - Step explanation
+  - Action button (navigate to related screen)
+
+**Design Principles Applied:**
+- One screen overview of entire financial plan
+- Clear progress visualization
+- Each step links to existing features
+- No redundant screens - reuses existing functionality
+- Bottom sheet for details (not separate screens)
+
+**Files:**
+- `lib/features/plan/screens/financial_plan_screen.dart`
+- `lib/features/plan/models/financial_plan.dart`
+
+---
+
+### 5.2 Debt Screen
+
+**Status:** Completed
+
+**Description:**
+Track and manage debts. Prioritizes high-interest debt (pay first) over low-interest.
+
+**Key Elements:**
+- **Overview Card** - Total remaining debt with progress
+  - Progress bar showing paid vs remaining
+  - Priority tip (focus on highest interest first)
+- **Priority Sections** - Debts grouped by priority
+  - High Priority (>15% interest) - Pay first
+  - Medium Priority (8-15%) - Pay after high
+  - Low Priority (<8%) - Maintain minimum
+  - Paid Off - Completed debts
+- **Debt Cards** - Each debt shows:
+  - Name
+  - Interest rate
+  - Remaining amount (of total)
+  - Progress bar
+- **Actions** - Record payment, Delete debt
+
+**Design Principles Applied:**
+- Priority-based grouping (not alphabetical)
+- Visual hierarchy: high-interest is most prominent
+- Celebration for debt-free state
+- Simple actions via bottom sheet
+
+**Files:**
+- `lib/features/plan/screens/debt_screen.dart`
+- `lib/features/plan/screens/add_debt_screen.dart`
+
+---
+
+### 5.3 Add Debt Screen
+
+**Status:** Completed
+
+**Description:**
+Add a debt to track. Auto-calculates priority based on interest rate.
+
+**Key Elements:**
+- **Name Input** - What is this debt?
+- **Amount Input** - Total amount owed
+- **Interest Rate Input** - Annual percentage
+- **Priority Indicator** - Auto-shows priority based on rate
+  - High (>15%): Black banner "Pay this first"
+  - Medium/Low: Gray info box
+- **Minimum Payment** - Optional monthly minimum
+
+**Design Principles Applied:**
+- Progressive disclosure (priority shows after interest entered)
+- Auto-focus on name field
+- Clear validation feedback
+- Follows Add Expense pattern
+
+**Files:**
+- `lib/features/plan/screens/add_debt_screen.dart`
 
 ---
 

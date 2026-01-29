@@ -136,6 +136,14 @@ lib/
 │   │       ├── cycle_settings_screen.dart
 │   │       └── knowledge_screen.dart
 │   │
+│   ├── plan/                          # Financial Plan feature
+│   │   ├── models/
+│   │   │   └── financial_plan.dart    # Debt, PlanStep, BudgetRule
+│   │   └── screens/
+│   │       ├── financial_plan_screen.dart  # 10-step overview
+│   │       ├── debt_screen.dart       # Debt management
+│   │       └── add_debt_screen.dart   # Add new debt
+│   │
 │   └── onboarding/                    # Initial setup
 │       └── screens/
 │           ├── welcome_screen.dart
@@ -175,6 +183,9 @@ Bottom Navigation (4 tabs)
 │       └── Edit Goal (modal)
 │
 └── You (index 3)
+    ├── Financial Plan (push)
+    │   └── Debt (push)
+    │       └── Add Debt (modal)
     ├── Income Setup (push)
     ├── Expenses Setup (push)
     ├── Variable Budget Setup (push)
