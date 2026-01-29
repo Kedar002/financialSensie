@@ -3,6 +3,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/progress_bar.dart';
+import '../../emergency_fund/screens/emergency_fund_screen.dart';
 
 /// Goals screen - list of planned expenses.
 /// Shows progress towards each goal including emergency fund.
@@ -52,7 +53,7 @@ class GoalsScreen extends StatelessWidget {
     const target = 200000.0;
 
     return GestureDetector(
-      onTap: () {},
+      onTap: () => _openEmergencyFund(context),
       child: AppCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,6 +91,12 @@ class GoalsScreen extends StatelessWidget {
                 Text(
                   '${progress.toStringAsFixed(0)}%',
                   style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(width: AppTheme.spacing8),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: AppTheme.gray400,
                 ),
               ],
             ),
@@ -141,6 +148,14 @@ class GoalsScreen extends StatelessWidget {
   void _addGoal(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Add goal - coming soon')),
+    );
+  }
+
+  void _openEmergencyFund(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const EmergencyFundScreen(),
+      ),
     );
   }
 }

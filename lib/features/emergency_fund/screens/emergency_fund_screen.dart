@@ -3,6 +3,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/progress_bar.dart';
+import 'add_fund_screen.dart';
 
 /// Emergency Fund screen - shows runway and progress.
 /// Clean, focused on the key metric: months of safety.
@@ -11,30 +12,53 @@ class EmergencyFundScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(AppTheme.spacing24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: AppTheme.spacing24),
-            Text(
-              'Emergency Fund',
-              style: Theme.of(context).textTheme.headlineMedium,
+    return Scaffold(
+      backgroundColor: AppTheme.white,
+      appBar: AppBar(
+        backgroundColor: AppTheme.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppTheme.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Emergency Fund'),
+        actions: [
+          TextButton(
+            onPressed: () => _addToFund(context),
+            child: const Text(
+              'Add',
+              style: TextStyle(
+                color: AppTheme.black,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            const SizedBox(height: AppTheme.spacing32),
-            _buildRunwayCard(context),
-            const SizedBox(height: AppTheme.spacing24),
-            _buildProgressCard(context),
-            const SizedBox(height: AppTheme.spacing24),
-            _buildDetailsCard(context),
-            const SizedBox(height: AppTheme.spacing32),
-            OutlinedButton(
-              onPressed: () => _addToFund(context),
-              child: const Text('Add to Fund'),
-            ),
-          ],
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(AppTheme.spacing24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildRunwayCard(context),
+              const SizedBox(height: AppTheme.spacing24),
+              _buildProgressCard(context),
+              const SizedBox(height: AppTheme.spacing24),
+              _buildDetailsCard(context),
+              const SizedBox(height: AppTheme.spacing32),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.spacing24),
+          child: ElevatedButton(
+            onPressed: () => _addToFund(context),
+            child: const Text('Add to Fund'),
+          ),
         ),
       ),
     );
@@ -188,9 +212,23 @@ class EmergencyFundScreen extends StatelessWidget {
     );
   }
 
-  void _addToFund(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add to fund - coming soon')),
+  void _addToFund(BuildContext context) async {
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (context) => const AddFundScreen(),
+        fullscreenDialog: true,
+      ),
     );
+
+    if (result != null && context.mounted) {
+      // TODO: Save to database when implemented
+      final amount = result['amount'] as double;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added ${Formatters.currency(amount)} to emergency fund'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }

@@ -205,18 +205,63 @@ Simple step-by-step setup flow for new users.
 **Description:**
 Shows runway (months of survival without income) and progress towards emergency fund goal.
 
+**Navigation:** Tap Emergency Fund card on Goals screen
+
 **Key Elements:**
-- Runway display in months
-- Progress bar with percentage
-- Target calculation details
-- "Add to Fund" action
+- **AppBar** - Back button, title, "Add" text button (quick access)
+- **Runway Card** - Hero metric showing months of survival
+  - "You can survive X months without income"
+- **Progress Card** - Visual progress indicator
+  - Progress bar with percentage
+  - Current vs target amounts
+- **Details Card** - Calculation breakdown
+  - Target (6 months)
+  - Monthly essentials
+  - Still needed (highlighted)
+  - Info box explaining the calculation
+- **Bottom Button** - Primary "Add to Fund" action (sticky)
+
+**Design Principles Applied:**
+- Primary action in two places: AppBar (quick) and bottom (prominent)
+- Bottom button uses `ElevatedButton` (primary style)
+- Information flows top to bottom: status → progress → details → action
+- No decorative elements
 
 **Files:**
 - `lib/features/emergency_fund/screens/emergency_fund_screen.dart`
+- `lib/features/emergency_fund/screens/add_fund_screen.dart`
 
 ---
 
-### 4. Goals Screen
+### 3.1 Add Fund Screen
+
+**Status:** Completed
+
+**Description:**
+Full-screen modal for recording contributions to the emergency fund. Follows the same pattern as Add Expense screen.
+
+**Key Elements:**
+- **Header** - Cancel button (text), "Add to Fund" title
+- **Amount Input** - Large currency input with ₹ prefix
+  - Auto-focus on open
+  - Supports decimals (2 decimal places)
+- **Note Input** - Optional description field
+  - Placeholder: "e.g., Bonus, Tax refund"
+- **Done Button** - Disabled until valid amount entered
+  - Subtle opacity animation for disabled state
+
+**Design Principles Applied:**
+- One action per screen
+- Large, easy-to-use input
+- Mirrors Add Expense pattern for consistency
+- Auto-focus for immediate input
+
+**Files:**
+- `lib/features/emergency_fund/screens/add_fund_screen.dart`
+
+---
+
+### 4. Goals Screen (Safety Tab)
 
 **Status:** Completed
 
@@ -224,8 +269,25 @@ Shows runway (months of survival without income) and progress towards emergency 
 List of planned expenses/savings goals including emergency fund.
 
 **Key Elements:**
-- Emergency fund card with progress
-- Add goal functionality (placeholder)
+- **Header** - "Goals" title with add button (IconButton)
+- **Emergency Fund Card** - Tappable card showing:
+  - Lock icon in gray container
+  - "Emergency Fund" label
+  - Runway in months (subtitle)
+  - Progress percentage
+  - Chevron indicator (shows it's tappable)
+  - Progress bar
+  - Current vs target amounts
+  - Navigates to Emergency Fund screen on tap
+- **Add More Goals** - Call-to-action section
+  - Title and description
+  - "Add Goal" button (placeholder)
+
+**Design Principles Applied:**
+- Emergency Fund is prominently featured (most important goal)
+- Chevron indicator follows iOS navigation patterns
+- Single card focus (not a cluttered list)
+- Clear visual hierarchy
 
 **Files:**
 - `lib/features/goals/screens/goals_screen.dart`
@@ -327,6 +389,7 @@ Explains the app philosophy and budget calculation logic in simple, human terms.
 | Monthly Budget Screen | 50-30-20 Breakdown | `lib/features/home/screens/monthly_budget_screen.dart` | Completed |
 | All Expenses Screen | Expense History | `lib/features/home/screens/all_expenses_screen.dart` | Completed |
 | Emergency Fund Screen | Emergency Fund Tracker | `lib/features/emergency_fund/screens/emergency_fund_screen.dart` | Completed |
+| Add Fund Screen | Emergency Fund Tracker | `lib/features/emergency_fund/screens/add_fund_screen.dart` | Completed |
 | Goals Screen | Goals Tracker | `lib/features/goals/screens/goals_screen.dart` | Completed |
 | Add Goal Screen | Goals Tracker | `lib/features/goals/screens/add_goal_screen.dart` | Completed |
 | Profile Screen | Settings | `lib/features/profile/screens/profile_screen.dart` | Completed |
