@@ -151,14 +151,51 @@ ADD EXPENSE SCREEN
 
 ## The Savings Flow
 
-When you log a "Savings" expense, it contributes to your financial safety:
+**IMPORTANT: Goals ARE Savings Destinations**
+
+The Goals tab is not a separate feature - it IS the savings category. When you log a "Savings" expense, you choose WHERE it goes:
+
+1. **Emergency Fund** (Safety tab) - Your financial safety net
+2. **A Specific Goal** (Goals tab) - Your savings targets
 
 ```
-SAVINGS EXPENSE
+SAVINGS EXPENSE (Add Expense Screen)
       │
-      ▼
+      │ User selects "Savings" category
+      │ Then chooses destination:
+      │
+      ├──> Emergency Fund ──> Safety Tab (tracks total)
+      │
+      └──> Goal (e.g., "Goa Trip") ──> Goals Tab (updates goal progress)
+```
+
+### How It Works in Code
+
+```dart
+// When adding expense, Savings category shows:
+// - Emergency Fund (always available)
+// - All user-created goals from Goals tab
+
+class SavingsDestination {
+  SavingsDestinationType type;  // emergencyFund or goal
+  String? goalId;               // ID if it's a goal
+  String? goalName;             // Name if it's a goal
+}
+```
+
+### Example Flow
+
+1. User creates a goal "Goa Trip" (₹30,000) in Goals tab
+2. User logs a Savings expense of ₹5,000
+3. User selects "Goa Trip" as destination
+4. Goal progress updates: ₹5,000 of ₹30,000 (16.7%)
+5. The expense appears in spending history as "Savings → Goa Trip"
+
+### Savings Priority
+
+```
 ┌─────────────────────────────────────────┐
-│         SAVINGS ALLOCATION              │
+│         SAVINGS DESTINATIONS            │
 │                                         │
 │   Priority 1: Emergency Fund            │
 │   ┌─────────────────────────────────┐   │
@@ -168,7 +205,7 @@ SAVINGS EXPENSE
 │   │  Status: 38% complete           │   │
 │   └─────────────────────────────────┘   │
 │                                         │
-│   Priority 2: Active Goals              │
+│   User-Created Goals:                   │
 │   ┌─────────────────────────────────┐   │
 │   │  • Goa Trip (₹5K of ₹30K)       │   │
 │   │  • New Laptop (₹20K of ₹80K)    │   │

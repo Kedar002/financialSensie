@@ -1,5 +1,5 @@
 /// Expense category.
-/// Three buckets. That's all you need.
+/// Three buckets: Needs, Wants, Savings.
 enum ExpenseCategory {
   needs,
   wants,
@@ -17,8 +17,8 @@ enum ExpenseCategory {
   }
 }
 
-/// Expense subcategory - specific type within each main category.
-/// Connected to Profile settings.
+/// Expense subcategory - specific type within Needs and Wants.
+/// For Savings, we use SavingsDestination instead.
 enum ExpenseSubcategory {
   // Needs - Fixed Expenses (from Profile → Fixed Expenses)
   rentEmi,
@@ -33,11 +33,7 @@ enum ExpenseSubcategory {
   // Wants - Variable Lifestyle (from Profile → Variable Budget)
   shopping,
   entertainment,
-  otherVariable,
-
-  // Savings - Destinations
-  emergencyFund,
-  goals;
+  otherVariable;
 
   String get label {
     switch (this) {
@@ -59,10 +55,6 @@ enum ExpenseSubcategory {
         return 'Entertainment';
       case ExpenseSubcategory.otherVariable:
         return 'Other';
-      case ExpenseSubcategory.emergencyFund:
-        return 'Emergency Fund';
-      case ExpenseSubcategory.goals:
-        return 'Goals';
     }
   }
 
@@ -80,27 +72,79 @@ enum ExpenseSubcategory {
       case ExpenseSubcategory.entertainment:
       case ExpenseSubcategory.otherVariable:
         return ExpenseCategory.wants;
-      case ExpenseSubcategory.emergencyFund:
-      case ExpenseSubcategory.goals:
-        return ExpenseCategory.savings;
     }
   }
 
-  /// Get all subcategories for a given main category.
+  /// Get all subcategories for a given main category (Needs or Wants only).
   static List<ExpenseSubcategory> forCategory(ExpenseCategory category) {
+    if (category == ExpenseCategory.savings) {
+      return []; // Savings uses SavingsDestination, not subcategories
+    }
     return ExpenseSubcategory.values
         .where((sub) => sub.parentCategory == category)
         .toList();
   }
 }
 
-/// Simple expense model.
-/// Just what's needed. Nothing more.
+/// Savings destination - where savings money goes.
+/// Either Emergency Fund or a specific Goal.
+class SavingsDestination {
+  final SavingsDestinationType type;
+  final String? goalId;    // Only set if type is goal
+  final String? goalName;  // Only set if type is goal
+
+  const SavingsDestination._({
+    required this.type,
+    this.goalId,
+    this.goalName,
+  });
+
+  /// Emergency Fund destination
+  factory SavingsDestination.emergencyFund() {
+    return const SavingsDestination._(
+      type: SavingsDestinationType.emergencyFund,
+    );
+  }
+
+  /// Specific goal destination
+  factory SavingsDestination.goal({
+    required String goalId,
+    required String goalName,
+  }) {
+    return SavingsDestination._(
+      type: SavingsDestinationType.goal,
+      goalId: goalId,
+      goalName: goalName,
+    );
+  }
+
+  String get label {
+    switch (type) {
+      case SavingsDestinationType.emergencyFund:
+        return 'Emergency Fund';
+      case SavingsDestinationType.goal:
+        return goalName ?? 'Goal';
+    }
+  }
+
+  bool get isEmergencyFund => type == SavingsDestinationType.emergencyFund;
+  bool get isGoal => type == SavingsDestinationType.goal;
+}
+
+enum SavingsDestinationType {
+  emergencyFund,
+  goal,
+}
+
+/// Expense model.
+/// For Needs/Wants: uses subcategory.
+/// For Savings: uses savingsDestination (Emergency Fund or specific Goal).
 class Expense {
   final String id;
   final double amount;
   final ExpenseCategory category;
-  final ExpenseSubcategory subcategory;
+  final ExpenseSubcategory? subcategory;        // For Needs/Wants
+  final SavingsDestination? savingsDestination; // For Savings
   final String? note;
   final DateTime date;
   final DateTime createdAt;
@@ -109,13 +153,14 @@ class Expense {
     required this.id,
     required this.amount,
     required this.category,
-    required this.subcategory,
+    this.subcategory,
+    this.savingsDestination,
     this.note,
     required this.date,
     required this.createdAt,
   });
 
-  /// Create a new expense with auto-generated ID.
+  /// Create expense for Needs or Wants category.
   factory Expense.create({
     required double amount,
     required ExpenseCategory category,
@@ -123,6 +168,8 @@ class Expense {
     String? note,
     DateTime? date,
   }) {
+    assert(category != ExpenseCategory.savings,
+           'Use Expense.createSavings for savings category');
     final now = DateTime.now();
     return Expense(
       id: now.millisecondsSinceEpoch.toString(),
@@ -133,5 +180,32 @@ class Expense {
       date: date ?? now,
       createdAt: now,
     );
+  }
+
+  /// Create expense for Savings category (goes to Emergency Fund or a Goal).
+  factory Expense.createSavings({
+    required double amount,
+    required SavingsDestination destination,
+    String? note,
+    DateTime? date,
+  }) {
+    final now = DateTime.now();
+    return Expense(
+      id: now.millisecondsSinceEpoch.toString(),
+      amount: amount,
+      category: ExpenseCategory.savings,
+      savingsDestination: destination,
+      note: note,
+      date: date ?? now,
+      createdAt: now,
+    );
+  }
+
+  /// Get display label for the subcategory or savings destination.
+  String get destinationLabel {
+    if (category == ExpenseCategory.savings) {
+      return savingsDestination?.label ?? 'Savings';
+    }
+    return subcategory?.label ?? category.label;
   }
 }

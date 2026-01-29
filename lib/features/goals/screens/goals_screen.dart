@@ -9,33 +9,39 @@ import 'goal_detail_screen.dart';
 
 /// Goals screen - your savings goals.
 /// Grouped by timeline. Rich cards with progress visualization.
-class GoalsScreen extends StatefulWidget {
-  const GoalsScreen({super.key});
+/// Goals ARE savings destinations - when you select Savings category
+/// in Add Expense, you choose Emergency Fund OR one of these goals.
+class GoalsScreen extends StatelessWidget {
+  final List<Goal> goals;
+  final void Function(Goal goal) onGoalAdded;
+  final void Function(Goal goal) onGoalUpdated;
+  final void Function(String goalId) onGoalDeleted;
 
-  @override
-  State<GoalsScreen> createState() => _GoalsScreenState();
-}
-
-class _GoalsScreenState extends State<GoalsScreen> {
-  final List<Goal> _goals = [];
+  const GoalsScreen({
+    super.key,
+    required this.goals,
+    required this.onGoalAdded,
+    required this.onGoalUpdated,
+    required this.onGoalDeleted,
+  });
 
   List<Goal> get _shortTermGoals =>
-      _goals.where((g) => g.timeline == GoalTimeline.shortTerm).toList();
+      goals.where((g) => g.timeline == GoalTimeline.shortTerm).toList();
 
   List<Goal> get _midTermGoals =>
-      _goals.where((g) => g.timeline == GoalTimeline.midTerm).toList();
+      goals.where((g) => g.timeline == GoalTimeline.midTerm).toList();
 
   List<Goal> get _longTermGoals =>
-      _goals.where((g) => g.timeline == GoalTimeline.longTerm).toList();
+      goals.where((g) => g.timeline == GoalTimeline.longTerm).toList();
 
-  double get _totalSaved => _goals.fold(0, (sum, g) => sum + g.currentAmount);
-  double get _totalTarget => _goals.fold(0, (sum, g) => sum + g.targetAmount);
+  double get _totalSaved => goals.fold(0, (sum, g) => sum + g.currentAmount);
+  double get _totalTarget => goals.fold(0, (sum, g) => sum + g.targetAmount);
   double get _overallProgress => _totalTarget > 0 ? (_totalSaved / _totalTarget) * 100 : 0;
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: _goals.isEmpty ? _buildEmptyState(context) : _buildGoalsList(context),
+      child: goals.isEmpty ? _buildEmptyState(context) : _buildGoalsList(context),
     );
   }
 
@@ -160,7 +166,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${_goals.length} ${_goals.length == 1 ? 'goal' : 'goals'}',
+                '${goals.length} ${goals.length == 1 ? 'goal' : 'goals'}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppTheme.gray500,
                     ),
@@ -305,29 +311,24 @@ class _GoalsScreenState extends State<GoalsScreen> {
       ),
     );
 
-    if (result != null && mounted) {
-      setState(() => _goals.add(result));
+    if (result != null) {
+      onGoalAdded(result);
     }
   }
 
   void _openGoalDetail(BuildContext context, Goal goal) async {
-    final index = _goals.indexWhere((g) => g.id == goal.id);
-    if (index == -1) return;
-
     final result = await Navigator.of(context).push<dynamic>(
       MaterialPageRoute(
         builder: (context) => GoalDetailScreen(goal: goal),
       ),
     );
 
-    if (result != null && mounted) {
-      setState(() {
-        if (result is Map && result['deleted'] == true) {
-          _goals.removeAt(index);
-        } else if (result is Goal) {
-          _goals[index] = result;
-        }
-      });
+    if (result != null) {
+      if (result is Map && result['deleted'] == true) {
+        onGoalDeleted(goal.id);
+      } else if (result is Goal) {
+        onGoalUpdated(result);
+      }
     }
   }
 }

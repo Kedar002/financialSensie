@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/minimal_calendar.dart';
 import '../../emergency_fund/screens/emergency_fund_screen.dart';
+import '../../goals/models/goal.dart';
 import '../../goals/screens/goals_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../models/expense.dart';
@@ -28,6 +29,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // In-memory expense storage (will connect to database later)
   final List<Expense> _expenses = [];
+
+  // In-memory goals storage (shared with Goals tab)
+  final List<Goal> _goals = [];
 
   // Budget configuration (will come from user settings later)
   static const double _monthlyVariableBudget = 25000.0;
@@ -60,7 +64,12 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _buildHomeContent(),
           const EmergencyFundScreen(),
-          const GoalsScreen(),
+          GoalsScreen(
+            goals: _goals,
+            onGoalAdded: _onGoalAdded,
+            onGoalUpdated: _onGoalUpdated,
+            onGoalDeleted: _onGoalDeleted,
+          ),
           const ProfileScreen(),
         ],
       ),
@@ -462,7 +471,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final expense = await Navigator.push<Expense>(
       context,
       MaterialPageRoute(
-        builder: (_) => AddExpenseScreen(date: _selectedDate),
+        builder: (_) => AddExpenseScreen(
+          date: _selectedDate,
+          goals: _goals,
+        ),
         fullscreenDialog: true,
       ),
     );
@@ -470,8 +482,38 @@ class _HomeScreenState extends State<HomeScreen> {
     if (expense != null) {
       setState(() {
         _expenses.add(expense);
+        // If this is a savings expense to a goal, update the goal's current amount
+        if (expense.category == ExpenseCategory.savings &&
+            expense.savingsDestination != null &&
+            expense.savingsDestination!.isGoal) {
+          final goalIndex = _goals.indexWhere(
+            (g) => g.id == expense.savingsDestination!.goalId,
+          );
+          if (goalIndex != -1) {
+            _goals[goalIndex] = _goals[goalIndex].copyWith(
+              currentAmount: _goals[goalIndex].currentAmount + expense.amount,
+            );
+          }
+        }
       });
     }
+  }
+
+  void _onGoalAdded(Goal goal) {
+    setState(() => _goals.add(goal));
+  }
+
+  void _onGoalUpdated(Goal goal) {
+    setState(() {
+      final index = _goals.indexWhere((g) => g.id == goal.id);
+      if (index != -1) {
+        _goals[index] = goal;
+      }
+    });
+  }
+
+  void _onGoalDeleted(String goalId) {
+    setState(() => _goals.removeWhere((g) => g.id == goalId));
   }
 
   void _viewMonthlyBudget() {

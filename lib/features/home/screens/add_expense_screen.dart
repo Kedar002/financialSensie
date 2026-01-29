@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../goals/models/goal.dart';
 import '../models/expense.dart';
 
 /// Add expense screen.
-/// One purpose: Log what you spent.
-/// Select category, then subcategory from Profile settings.
+/// Select category, then:
+/// - Needs/Wants: Select subcategory from Profile settings
+/// - Savings: Select destination (Emergency Fund or a Goal)
 class AddExpenseScreen extends StatefulWidget {
   final DateTime date;
+  final List<Goal> goals; // User's savings goals
 
   const AddExpenseScreen({
     super.key,
     required this.date,
+    required this.goals,
   });
 
   @override
@@ -22,13 +26,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
   final _amountFocusNode = FocusNode();
+
   ExpenseCategory _selectedCategory = ExpenseCategory.needs;
   ExpenseSubcategory? _selectedSubcategory;
+  SavingsDestination? _selectedSavingsDestination;
 
   @override
   void initState() {
     super.initState();
-    // Set default subcategory
+    // Set default subcategory for Needs
     _selectedSubcategory = ExpenseSubcategory.otherFixed;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _amountFocusNode.requestFocus();
@@ -45,7 +51,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   bool get _canSave {
     final amount = double.tryParse(_amountController.text) ?? 0;
-    return amount > 0 && _selectedSubcategory != null;
+    if (amount <= 0) return false;
+
+    if (_selectedCategory == ExpenseCategory.savings) {
+      return _selectedSavingsDestination != null;
+    }
+    return _selectedSubcategory != null;
   }
 
   @override
@@ -64,7 +75,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: AppTheme.spacing32),
               _buildCategorySelector(),
               const SizedBox(height: AppTheme.spacing24),
-              _buildSubcategorySelector(),
+              if (_selectedCategory == ExpenseCategory.savings)
+                _buildSavingsDestinationSelector()
+              else
+                _buildSubcategorySelector(),
               const SizedBox(height: AppTheme.spacing32),
               _buildNoteInput(),
               const Spacer(),
@@ -162,9 +176,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               onTap: () {
                 setState(() {
                   _selectedCategory = category;
-                  // Reset subcategory and select default "Other" for the new category
-                  final subs = ExpenseSubcategory.forCategory(category);
-                  _selectedSubcategory = subs.isNotEmpty ? subs.last : null;
+                  if (category == ExpenseCategory.savings) {
+                    // Default to Emergency Fund for savings
+                    _selectedSubcategory = null;
+                    _selectedSavingsDestination = SavingsDestination.emergencyFund();
+                  } else {
+                    // Reset to default subcategory for the new category
+                    final subs = ExpenseSubcategory.forCategory(category);
+                    _selectedSubcategory = subs.isNotEmpty ? subs.last : null;
+                    _selectedSavingsDestination = null;
+                  }
                 });
               },
               child: AnimatedContainer(
@@ -238,6 +259,121 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
+  Widget _buildSavingsDestinationSelector() {
+    // Build list of savings destinations: Emergency Fund + all goals
+    final destinations = <_SavingsOption>[
+      _SavingsOption(
+        destination: SavingsDestination.emergencyFund(),
+        label: 'Emergency Fund',
+        subtitle: 'Safety net',
+      ),
+      ...widget.goals.map((goal) => _SavingsOption(
+            destination: SavingsDestination.goal(
+              goalId: goal.id,
+              goalName: goal.name,
+            ),
+            label: goal.name,
+            subtitle: goal.timeline.label,
+          )),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Add to',
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+        const SizedBox(height: AppTheme.spacing12),
+        if (destinations.length == 1)
+          // Only Emergency Fund, no goals
+          Column(
+            children: [
+              _buildSavingsDestinationChip(destinations.first),
+              const SizedBox(height: AppTheme.spacing16),
+              Container(
+                padding: const EdgeInsets.all(AppTheme.spacing12),
+                decoration: BoxDecoration(
+                  color: AppTheme.gray100,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lightbulb_outline, size: 16, color: AppTheme.gray500),
+                    const SizedBox(width: AppTheme.spacing8),
+                    Expanded(
+                      child: Text(
+                        'Create goals in the Goals tab to save for specific things',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.gray500,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          )
+        else
+          Wrap(
+            spacing: AppTheme.spacing8,
+            runSpacing: AppTheme.spacing8,
+            children: destinations.map((option) => _buildSavingsDestinationChip(option)).toList(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSavingsDestinationChip(_SavingsOption option) {
+    final isSelected = _selectedSavingsDestination != null &&
+        ((_selectedSavingsDestination!.isEmergencyFund && option.destination.isEmergencyFund) ||
+            (_selectedSavingsDestination!.isGoal &&
+                option.destination.isGoal &&
+                _selectedSavingsDestination!.goalId == option.destination.goalId));
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedSavingsDestination = option.destination),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spacing16,
+          vertical: AppTheme.spacing12,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.black : AppTheme.white,
+          border: Border.all(
+            color: isSelected ? AppTheme.black : AppTheme.gray200,
+          ),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              option.label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? AppTheme.white : AppTheme.black,
+              ),
+            ),
+            if (option.subtitle != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                option.subtitle!,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isSelected ? AppTheme.gray200 : AppTheme.gray500,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildNoteInput() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,16 +432,44 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   void _save() {
     final amount = double.tryParse(_amountController.text) ?? 0;
-    if (amount <= 0 || _selectedSubcategory == null) return;
+    if (amount <= 0) return;
 
-    final expense = Expense.create(
-      amount: amount,
-      category: _selectedCategory,
-      subcategory: _selectedSubcategory!,
-      note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
-      date: widget.date,
-    );
+    final note = _noteController.text.trim().isEmpty ? null : _noteController.text.trim();
+
+    Expense expense;
+
+    if (_selectedCategory == ExpenseCategory.savings) {
+      if (_selectedSavingsDestination == null) return;
+      expense = Expense.createSavings(
+        amount: amount,
+        destination: _selectedSavingsDestination!,
+        note: note,
+        date: widget.date,
+      );
+    } else {
+      if (_selectedSubcategory == null) return;
+      expense = Expense.create(
+        amount: amount,
+        category: _selectedCategory,
+        subcategory: _selectedSubcategory!,
+        note: note,
+        date: widget.date,
+      );
+    }
 
     Navigator.pop(context, expense);
   }
+}
+
+/// Helper class for savings destination options.
+class _SavingsOption {
+  final SavingsDestination destination;
+  final String label;
+  final String? subtitle;
+
+  const _SavingsOption({
+    required this.destination,
+    required this.label,
+    this.subtitle,
+  });
 }
