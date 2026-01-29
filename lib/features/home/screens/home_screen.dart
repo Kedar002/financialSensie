@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/budget_cycle.dart';
+import '../../../core/services/budget_calculator.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/minimal_calendar.dart';
@@ -25,35 +27,20 @@ class _HomeScreenState extends State<HomeScreen> {
   // In-memory expense storage (will connect to database later)
   final List<Expense> _expenses = [];
 
-  // Placeholder budget
-  static const double _budget = 25000.0;
+  // Budget configuration (will come from user settings later)
+  static const double _monthlyVariableBudget = 25000.0;
 
-  double get _totalSpent {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final endOfMonth = DateTime(now.year, now.month + 1, 0);
+  // Current budget cycle
+  BudgetCycle get _cycle => BudgetCycle.currentMonth(budget: _monthlyVariableBudget);
 
-    return _expenses
-        .where((e) =>
-            e.date.isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
-            e.date.isBefore(endOfMonth.add(const Duration(days: 1))))
-        .fold(0.0, (sum, e) => sum + e.amount);
-  }
-
-  double get _remaining => _budget - _totalSpent;
-
-  double get _dailyAllowance {
-    final now = DateTime.now();
-    final endOfMonth = DateTime(now.year, now.month + 1, 0);
-    final daysLeft = endOfMonth.day - now.day + 1;
-    if (daysLeft <= 0) return 0;
-    return _remaining / daysLeft;
-  }
+  // Budget snapshot (recalculated on each build)
+  BudgetSnapshot get _snapshot => BudgetCalculator.calculate(
+        cycle: _cycle,
+        expenses: _expenses,
+      );
 
   List<Expense> get _selectedDateExpenses {
-    return _expenses
-        .where((e) => _isSameDay(e.date, _selectedDate))
-        .toList()
+    return BudgetCalculator.getExpensesForDate(_expenses, _selectedDate)
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
@@ -88,6 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHomeContent() {
+    final snapshot = _snapshot;
+
     return SafeArea(
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -101,9 +90,9 @@ class _HomeScreenState extends State<HomeScreen> {
               onDateSelected: _onDateSelected,
             ),
             const SizedBox(height: AppTheme.spacing48),
-            _buildHeroSection(),
+            _buildHeroSection(snapshot),
             const SizedBox(height: AppTheme.spacing48),
-            _buildCycleProgress(),
+            _buildCycleProgress(snapshot),
             const SizedBox(height: AppTheme.spacing32),
             _buildExpensesList(),
             const SizedBox(height: AppTheme.spacing64),
@@ -113,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHeroSection() {
+  Widget _buildHeroSection(BudgetSnapshot snapshot) {
     final isToday = _isSameDay(_selectedDate, DateTime.now());
     final selectedExpenses = _selectedDateExpenses;
     final dayTotal = selectedExpenses.fold(0.0, (sum, e) => sum + e.amount);
@@ -121,38 +110,92 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          isToday ? 'You can spend' : _getDateLabel(_selectedDate),
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        const SizedBox(height: AppTheme.spacing8),
-        Text(
-          isToday
-              ? Formatters.currency(_dailyAllowance.clamp(0, double.infinity))
-              : Formatters.currency(dayTotal),
-          style: Theme.of(context).textTheme.displayLarge,
-        ),
+        // Main display
         if (isToday) ...[
+          Text(
+            'You can spend',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: AppTheme.spacing8),
+          Text(
+            Formatters.currency(snapshot.rollingDailyAllowance),
+            style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                  color: snapshot.isOverBudget ? AppTheme.gray400 : AppTheme.black,
+                ),
+          ),
           const SizedBox(height: AppTheme.spacing4),
           Text(
             'today',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
-        ],
-        if (!isToday && selectedExpenses.isNotEmpty) ...[
-          const SizedBox(height: AppTheme.spacing4),
+          // Show planned budget as context
+          const SizedBox(height: AppTheme.spacing16),
+          Row(
+            children: [
+              Text(
+                'Planned: ${Formatters.currency(snapshot.plannedDailyBudget)}/day',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+              const SizedBox(width: AppTheme.spacing12),
+              Container(
+                width: 3,
+                height: 3,
+                decoration: const BoxDecoration(
+                  color: AppTheme.gray400,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: AppTheme.spacing12),
+              Text(
+                '${snapshot.remainingDays} days left',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ],
+          ),
+          // Over budget warning
+          if (snapshot.isOverBudget) ...[
+            const SizedBox(height: AppTheme.spacing16),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.spacing12,
+                vertical: AppTheme.spacing8,
+              ),
+              decoration: BoxDecoration(
+                color: AppTheme.gray100,
+                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              ),
+              child: Text(
+                'Over budget by ${Formatters.currency(snapshot.overBudgetAmount)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.black,
+                    ),
+              ),
+            ),
+          ],
+        ] else ...[
+          // Past or future date view
           Text(
-            '${selectedExpenses.length} ${selectedExpenses.length == 1 ? 'expense' : 'expenses'}',
+            _getDateLabel(_selectedDate),
             style: Theme.of(context).textTheme.bodyMedium,
           ),
+          const SizedBox(height: AppTheme.spacing8),
+          Text(
+            Formatters.currency(dayTotal),
+            style: Theme.of(context).textTheme.displayLarge,
+          ),
+          if (selectedExpenses.isNotEmpty) ...[
+            const SizedBox(height: AppTheme.spacing4),
+            Text(
+              '${selectedExpenses.length} ${selectedExpenses.length == 1 ? 'expense' : 'expenses'}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
         ],
       ],
     );
   }
 
-  Widget _buildCycleProgress() {
-    final progress = _totalSpent / _budget;
-
+  Widget _buildCycleProgress(BudgetSnapshot snapshot) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -164,23 +207,26 @@ class _HomeScreenState extends State<HomeScreen> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             Text(
-              '${(progress * 100).clamp(0, 100).toInt()}%',
+              '${(snapshot.spentProgress * 100).clamp(0, 999).toInt()}%',
               style: Theme.of(context).textTheme.labelMedium,
             ),
           ],
         ),
         const SizedBox(height: AppTheme.spacing12),
-        _buildProgressBar(progress),
+        _buildProgressBar(snapshot.spentProgress),
         const SizedBox(height: AppTheme.spacing16),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildStatColumn('Budget', Formatters.currency(_budget)),
-            _buildStatColumn('Spent', Formatters.currency(_totalSpent)),
+            _buildStatColumn('Budget', Formatters.currency(snapshot.totalBudget)),
+            _buildStatColumn('Spent', Formatters.currency(snapshot.totalSpent)),
             _buildStatColumn(
               'Left',
-              Formatters.currency(_remaining),
+              snapshot.isOverBudget
+                  ? '-${Formatters.currency(snapshot.overBudgetAmount)}'
+                  : Formatters.currency(snapshot.remainingBudget),
               highlight: true,
+              negative: snapshot.isOverBudget,
             ),
           ],
         ),
@@ -208,7 +254,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildStatColumn(String label, String value, {bool highlight = false}) {
+  Widget _buildStatColumn(
+    String label,
+    String value, {
+    bool highlight = false,
+    bool negative = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -220,7 +271,9 @@ class _HomeScreenState extends State<HomeScreen> {
         Text(
           value,
           style: highlight
-              ? Theme.of(context).textTheme.titleLarge
+              ? Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: negative ? AppTheme.gray400 : AppTheme.black,
+                  )
               : Theme.of(context).textTheme.bodyLarge,
         ),
       ],

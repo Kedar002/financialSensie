@@ -36,12 +36,15 @@ The core screen of the app. Shows how much the user can safely spend today with 
   - Month navigation: Previous/Next arrows, "Today" quick-jump
   - Clean 7-column grid for month view
 - **Hero Section** - Large display of spendable amount
-  - Context-aware label: "You can spend" (today) / "Spent on X" (past) / "Planned" (future)
-  - Dynamic calculation based on remaining budget and days left
+  - Shows `rollingDailyAllowance` as the hero number
+  - Context line shows `plannedDailyBudget` and days remaining
+  - Over-budget warning when applicable
+  - See [BUDGET_LOGIC.md](./BUDGET_LOGIC.md) for calculation details
 - **Cycle Progress** - Monthly budget overview
   - Thin progress bar (4px)
   - Three stats in order: Budget, Spent, Left
   - "Left" is highlighted as the key metric
+  - Negative values shown in muted gray
 - **Recent Expenses** - List of last 5 expenses
   - Shows note (or "Expense" if none), date, and amount
   - Clean row layout with minimal information
@@ -59,6 +62,8 @@ The core screen of the app. Shows how much the user can safely spend today with 
 - `lib/features/home/screens/home_screen.dart`
 - `lib/features/home/screens/add_expense_screen.dart`
 - `lib/features/home/models/expense.dart`
+- `lib/core/models/budget_cycle.dart`
+- `lib/core/services/budget_calculator.dart`
 - `lib/shared/widgets/minimal_calendar.dart`
 
 ---
@@ -159,13 +164,56 @@ List of planned expenses/savings goals including emergency fund.
 
 ### 5. Profile Screen
 
-**Status:** In Progress
+**Status:** Completed
 
 **Description:**
-User settings and configuration editing.
+Minimal settings screen showing financial configuration and access to knowledge base.
+
+**Key Elements:**
+- **Setup Section** - Four tappable rows (iOS Settings style)
+  - Income → Edit income screen
+  - Fixed Expenses → Edit expenses screen
+  - Variable Budget → Edit budget screen
+  - Savings → Edit savings screen
+- **Learn Section** - Link to Knowledge screen
+  - "How it works" with subtitle
+
+**Design Principles Applied:**
+- iOS Settings-style rows (tap anywhere to navigate)
+- Chevron indicators for navigation
+- Values shown inline (no cards)
+- Minimal vertical dividers
+- No summary cards or calculated values
+- No danger zone / delete options
 
 **Files:**
 - `lib/features/profile/screens/profile_screen.dart`
+
+---
+
+### 6. Knowledge Screen
+
+**Status:** Completed
+
+**Description:**
+Explains the app philosophy and budget calculation logic in simple, human terms.
+
+**Key Sections:**
+- **The Philosophy** - Why the app exists
+- **The Math** - Four-step breakdown of calculations
+- **Two Numbers** - Explains Planned vs Available
+- **Example** - Real calculation walkthrough
+- **Three Buckets** - Needs, Wants, Savings categories
+
+**Design Principles Applied:**
+- Clean typography hierarchy
+- Numbered steps with black circles
+- Card-style explanations for key numbers
+- No jargon, conversational tone
+- Generous whitespace
+
+**Files:**
+- `lib/features/profile/screens/knowledge_screen.dart`
 
 ---
 
@@ -178,7 +226,8 @@ User settings and configuration editing.
 | Emergency Fund Screen | Emergency Fund Tracker | `lib/features/emergency_fund/screens/emergency_fund_screen.dart` | Completed |
 | Goals Screen | Goals Tracker | `lib/features/goals/screens/goals_screen.dart` | Completed |
 | Add Goal Screen | Goals Tracker | `lib/features/goals/screens/add_goal_screen.dart` | Completed |
-| Profile Screen | Settings | `lib/features/profile/screens/profile_screen.dart` | In Progress |
+| Profile Screen | Settings | `lib/features/profile/screens/profile_screen.dart` | Completed |
+| Knowledge Screen | How It Works | `lib/features/profile/screens/knowledge_screen.dart` | Completed |
 | Welcome Screen | Onboarding | `lib/features/onboarding/screens/welcome_screen.dart` | Completed |
 | Income Setup Screen | Onboarding | `lib/features/onboarding/screens/income_setup_screen.dart` | Completed |
 | Expenses Setup Screen | Onboarding | `lib/features/onboarding/screens/expenses_setup_screen.dart` | Completed |
@@ -193,6 +242,14 @@ User settings and configuration editing.
 |-------|---------|-----------|
 | Expense | Represents a single expense entry | `lib/features/home/models/expense.dart` |
 | ExpenseCategory | Enum: needs, wants, savings | `lib/features/home/models/expense.dart` |
+| BudgetCycle | Budget cycle configuration (start/end dates, budget amount) | `lib/core/models/budget_cycle.dart` |
+| BudgetSnapshot | Calculated budget state (planned, rolling, spent, remaining) | `lib/core/services/budget_calculator.dart` |
+
+## Services
+
+| Service | Purpose | File Path |
+|---------|---------|-----------|
+| BudgetCalculator | Stateless calculator for budget metrics | `lib/core/services/budget_calculator.dart` |
 
 ---
 
