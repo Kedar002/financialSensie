@@ -5,6 +5,8 @@ import '../../../shared/widgets/minimal_calendar.dart';
 import '../../emergency_fund/screens/emergency_fund_screen.dart';
 import '../../goals/screens/goals_screen.dart';
 import '../../profile/screens/profile_screen.dart';
+import '../models/expense.dart';
+import 'add_expense_screen.dart';
 
 /// Home screen - THE core screen.
 /// One focus: How much can you spend?
@@ -19,6 +21,47 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   DateTime _selectedDate = DateTime.now();
+
+  // In-memory expense storage (will connect to database later)
+  final List<Expense> _expenses = [];
+
+  // Placeholder budget
+  static const double _budget = 25000.0;
+
+  double get _totalSpent {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final endOfMonth = DateTime(now.year, now.month + 1, 0);
+
+    return _expenses
+        .where((e) =>
+            e.date.isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+            e.date.isBefore(endOfMonth.add(const Duration(days: 1))))
+        .fold(0.0, (sum, e) => sum + e.amount);
+  }
+
+  double get _remaining => _budget - _totalSpent;
+
+  double get _dailyAllowance {
+    final now = DateTime.now();
+    final endOfMonth = DateTime(now.year, now.month + 1, 0);
+    final daysLeft = endOfMonth.day - now.day + 1;
+    if (daysLeft <= 0) return 0;
+    return _remaining / daysLeft;
+  }
+
+  List<Expense> get _selectedDateExpenses {
+    return _expenses
+        .where((e) => _isSameDay(e.date, _selectedDate))
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  List<Expense> get _recentExpenses {
+    final sorted = List<Expense>.from(_expenses)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return sorted.take(5).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +104,8 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildHeroSection(),
             const SizedBox(height: AppTheme.spacing48),
             _buildCycleProgress(),
+            const SizedBox(height: AppTheme.spacing32),
+            _buildExpensesList(),
             const SizedBox(height: AppTheme.spacing64),
           ],
         ),
@@ -69,9 +114,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeroSection() {
-    // Placeholder values - will be connected to database later
     final isToday = _isSameDay(_selectedDate, DateTime.now());
-    final daily = isToday ? 847.0 : 0.0;
+    final selectedExpenses = _selectedDateExpenses;
+    final dayTotal = selectedExpenses.fold(0.0, (sum, e) => sum + e.amount);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,7 +127,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: AppTheme.spacing8),
         Text(
-          Formatters.currency(daily),
+          isToday
+              ? Formatters.currency(_dailyAllowance.clamp(0, double.infinity))
+              : Formatters.currency(dayTotal),
           style: Theme.of(context).textTheme.displayLarge,
         ),
         if (isToday) ...[
@@ -92,15 +139,19 @@ class _HomeScreenState extends State<HomeScreen> {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
+        if (!isToday && selectedExpenses.isNotEmpty) ...[
+          const SizedBox(height: AppTheme.spacing4),
+          Text(
+            '${selectedExpenses.length} ${selectedExpenses.length == 1 ? 'expense' : 'expenses'}',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
       ],
     );
   }
 
   Widget _buildCycleProgress() {
-    // Placeholder values
-    const spent = 8500.0;
-    const budget = 25000.0;
-    final progress = spent / budget;
+    final progress = _totalSpent / _budget;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             Text(
-              '${(progress * 100).toInt()}%',
+              '${(progress * 100).clamp(0, 100).toInt()}%',
               style: Theme.of(context).textTheme.labelMedium,
             ),
           ],
@@ -124,11 +175,11 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildStatColumn('Spent', Formatters.currency(spent)),
-            _buildStatColumn('Budget', Formatters.currency(budget)),
+            _buildStatColumn('Budget', Formatters.currency(_budget)),
+            _buildStatColumn('Spent', Formatters.currency(_totalSpent)),
             _buildStatColumn(
               'Left',
-              Formatters.currency(budget - spent),
+              Formatters.currency(_remaining),
               highlight: true,
             ),
           ],
@@ -174,6 +225,74 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildExpensesList() {
+    final expenses = _recentExpenses;
+
+    if (expenses.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Recent',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: AppTheme.spacing16),
+        ...expenses.map((expense) => _buildExpenseItem(expense)),
+      ],
+    );
+  }
+
+  Widget _buildExpenseItem(Expense expense) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.spacing12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  expense.note ?? 'Expense',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  _formatExpenseDate(expense.date),
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ],
+            ),
+          ),
+          Text(
+            Formatters.currency(expense.amount),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatExpenseDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final expenseDay = DateTime(date.year, date.month, date.day);
+
+    if (expenseDay == today) {
+      return 'Today';
+    }
+
+    final yesterday = today.subtract(const Duration(days: 1));
+    if (expenseDay == yesterday) {
+      return 'Yesterday';
+    }
+
+    return '${date.day}/${date.month}';
   }
 
   Widget _buildNavBar() {
@@ -223,11 +342,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final yesterday = DateTime(now.year, now.month, now.day - 1);
 
     if (_isSameDay(date, yesterday)) {
-      return 'Yesterday';
+      return 'Spent yesterday';
     }
 
     if (date.isAfter(now)) {
-      return 'Planned for ${date.day}/${date.month}';
+      return 'Planned';
     }
 
     return 'Spent on ${date.day}/${date.month}';
@@ -237,9 +356,19 @@ class _HomeScreenState extends State<HomeScreen> {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
-  void _logSpending() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Log spending - coming soon')),
+  Future<void> _logSpending() async {
+    final expense = await Navigator.push<Expense>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddExpenseScreen(date: _selectedDate),
+        fullscreenDialog: true,
+      ),
     );
+
+    if (expense != null) {
+      setState(() {
+        _expenses.add(expense);
+      });
+    }
   }
 }

@@ -27,7 +27,7 @@ Core Promise: *"I don't track money. My system does."*
 **Status:** Completed
 
 **Description:**
-The core screen of the app. Shows how much the user can safely spend today with a minimal calendar for date navigation.
+The core screen of the app. Shows how much the user can safely spend today with a minimal calendar for date navigation, expense logging, and recent expense history.
 
 **Key Elements:**
 - **Minimal Calendar** - Week strip view by default, expands to full month on tap
@@ -36,10 +36,17 @@ The core screen of the app. Shows how much the user can safely spend today with 
   - Month navigation: Previous/Next arrows, "Today" quick-jump
   - Clean 7-column grid for month view
 - **Hero Section** - Large display of spendable amount
-  - Context-aware label: "You can spend" (today) / "Spent on X" (past) / "Planned for X" (future)
+  - Context-aware label: "You can spend" (today) / "Spent on X" (past) / "Planned" (future)
+  - Dynamic calculation based on remaining budget and days left
 - **Cycle Progress** - Monthly budget overview
   - Thin progress bar (4px)
-  - Three stats: Spent, Budget, Left
+  - Three stats in order: Budget, Spent, Left
+  - "Left" is highlighted as the key metric
+- **Recent Expenses** - List of last 5 expenses
+  - Shows note (or "Expense" if none), date, and amount
+  - Clean row layout with minimal information
+- **FAB (Floating Action Button)** - Quick expense logging
+  - Opens full-screen Add Expense screen
 
 **Design Principles Applied:**
 - One primary focus: The spending amount
@@ -50,7 +57,39 @@ The core screen of the app. Shows how much the user can safely spend today with 
 
 **Files:**
 - `lib/features/home/screens/home_screen.dart`
+- `lib/features/home/screens/add_expense_screen.dart`
+- `lib/features/home/models/expense.dart`
 - `lib/shared/widgets/minimal_calendar.dart`
+
+---
+
+### 1.1 Add Expense Screen
+
+**Status:** Completed
+
+**Description:**
+Full-screen modal for logging expenses. Minimal, focused on one action: enter what you spent.
+
+**Key Elements:**
+- **Header** - Cancel button (text), date label, clean layout
+- **Amount Input** - Large currency input with ₹ prefix
+  - Auto-focus on open
+  - Supports decimals (2 decimal places)
+- **Note Input** - Optional description field
+  - Placeholder: "What was this for?"
+- **Done Button** - Disabled until valid amount entered
+  - Subtle opacity animation for disabled state
+
+**Design Principles Applied:**
+- One action per screen
+- Large, easy-to-use input
+- Minimal fields (just amount + optional note)
+- No categories (simplicity over organization)
+- Auto-focus for immediate input
+
+**Files:**
+- `lib/features/home/screens/add_expense_screen.dart`
+- `lib/features/home/models/expense.dart`
 
 ---
 
@@ -129,6 +168,7 @@ User settings and configuration editing.
 | Screen Name | Feature | File Path | Status |
 |-------------|---------|-----------|--------|
 | Home Screen | Daily Spending View | `lib/features/home/screens/home_screen.dart` | Completed |
+| Add Expense Screen | Expense Logging | `lib/features/home/screens/add_expense_screen.dart` | Completed |
 | Emergency Fund Screen | Emergency Fund Tracker | `lib/features/emergency_fund/screens/emergency_fund_screen.dart` | Completed |
 | Goals Screen | Goals Tracker | `lib/features/goals/screens/goals_screen.dart` | Completed |
 | Add Goal Screen | Goals Tracker | `lib/features/goals/screens/add_goal_screen.dart` | Completed |
@@ -138,6 +178,14 @@ User settings and configuration editing.
 | Expenses Setup Screen | Onboarding | `lib/features/onboarding/screens/expenses_setup_screen.dart` | Completed |
 | Variable Budget Setup Screen | Onboarding | `lib/features/onboarding/screens/variable_budget_setup_screen.dart` | Completed |
 | Savings Setup Screen | Onboarding | `lib/features/onboarding/screens/savings_setup_screen.dart` | Completed |
+
+---
+
+## Models
+
+| Model | Purpose | File Path |
+|-------|---------|-----------|
+| Expense | Represents a single expense entry | `lib/features/home/models/expense.dart` |
 
 ---
 
