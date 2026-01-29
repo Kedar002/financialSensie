@@ -1,19 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/repositories/user_repository.dart';
-import '../../../core/repositories/income_repository.dart';
-import '../../../core/models/income_source.dart';
 import 'expenses_setup_screen.dart';
 
 /// Income setup - one field, one action.
 class IncomeSetupScreen extends StatefulWidget {
-  final int? userId;
   final bool isEditing;
 
   const IncomeSetupScreen({
     super.key,
-    this.userId,
     this.isEditing = false,
   });
 
@@ -23,32 +18,6 @@ class IncomeSetupScreen extends StatefulWidget {
 
 class _IncomeSetupScreenState extends State<IncomeSetupScreen> {
   final _controller = TextEditingController();
-  final _userRepo = UserRepository();
-  final _incomeRepo = IncomeRepository();
-  bool _isLoading = false;
-  List<IncomeSource> _existingIncomes = [];
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.isEditing && widget.userId != null) {
-      _loadExistingData();
-    }
-  }
-
-  Future<void> _loadExistingData() async {
-    final incomes = await _incomeRepo.getByUserId(widget.userId!);
-    if (incomes.isNotEmpty) {
-      _existingIncomes = incomes;
-      // Show the first income amount
-      final totalMonthly = incomes.fold<double>(
-        0.0,
-        (sum, income) => sum + income.monthlyAmount,
-      );
-      _controller.text = totalMonthly.toStringAsFixed(0);
-    }
-    if (mounted) setState(() {});
-  }
 
   @override
   void dispose() {
@@ -96,23 +65,14 @@ class _IncomeSetupScreenState extends State<IncomeSetupScreen> {
                 style: Theme.of(context).textTheme.displayMedium,
                 decoration: const InputDecoration(
                   hintText: '0',
-                  prefixText: '₹ ',
+                  prefixText: '\u20B9 ',
                 ),
                 autofocus: !widget.isEditing,
               ),
               const Spacer(),
               ElevatedButton(
-                onPressed: _isLoading ? null : _continue,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppTheme.white,
-                        ),
-                      )
-                    : Text(widget.isEditing ? 'Save' : 'Continue'),
+                onPressed: _continue,
+                child: Text(widget.isEditing ? 'Save' : 'Continue'),
               ),
               const SizedBox(height: AppTheme.spacing48),
             ],
@@ -122,60 +82,15 @@ class _IncomeSetupScreenState extends State<IncomeSetupScreen> {
     );
   }
 
-  Future<void> _continue() async {
-    final amount = double.tryParse(_controller.text);
-    if (amount == null || amount <= 0) {
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      int userId;
-
-      if (widget.isEditing && widget.userId != null) {
-        userId = widget.userId!;
-
-        // Delete existing incomes and add new one
-        for (final income in _existingIncomes) {
-          if (income.id != null) {
-            await _incomeRepo.delete(income.id!);
-          }
-        }
-      } else {
-        // Create user if not exists
-        final hasUser = await _userRepo.hasUser();
-
-        if (!hasUser) {
-          userId = await _userRepo.createUser('User');
-        } else {
-          final user = await _userRepo.getCurrentUser();
-          userId = user!.id!;
-        }
-      }
-
-      // Add income
-      await _incomeRepo.addIncome(
-        userId: userId,
-        name: 'Salary',
-        amount: amount,
+  void _continue() {
+    if (widget.isEditing) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => const ExpensesSetupScreen(),
+        ),
       );
-
-      if (mounted) {
-        if (widget.isEditing) {
-          Navigator.of(context).pop();
-        } else {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => ExpensesSetupScreen(userId: userId),
-            ),
-          );
-        }
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
     }
   }
 }

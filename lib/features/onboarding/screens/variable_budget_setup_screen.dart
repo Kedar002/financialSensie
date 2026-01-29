@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/repositories/expense_repository.dart';
-import '../../../core/models/variable_expense.dart';
 import 'savings_setup_screen.dart';
 
 /// Variable budget setup - estimate spending for each category.
 class VariableBudgetSetupScreen extends StatefulWidget {
-  final int userId;
   final bool isEditing;
 
   const VariableBudgetSetupScreen({
     super.key,
-    required this.userId,
     this.isEditing = false,
   });
 
@@ -21,44 +17,41 @@ class VariableBudgetSetupScreen extends StatefulWidget {
 }
 
 class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
-  final _variableExpenseRepo = VariableExpenseRepository();
   final Map<String, TextEditingController> _controllers = {};
-  bool _isLoading = false;
-  List<VariableExpense> _existingExpenses = [];
 
   final List<_CategoryInfo> _categories = [
     _CategoryInfo(
-      key: VariableExpenseCategory.food,
+      key: 'food',
       label: 'Food & Dining',
       icon: Icons.restaurant,
       isEssential: true,
     ),
     _CategoryInfo(
-      key: VariableExpenseCategory.transport,
+      key: 'transport',
       label: 'Transport',
       icon: Icons.directions_car,
       isEssential: true,
     ),
     _CategoryInfo(
-      key: VariableExpenseCategory.shopping,
+      key: 'shopping',
       label: 'Shopping',
       icon: Icons.shopping_bag,
       isEssential: false,
     ),
     _CategoryInfo(
-      key: VariableExpenseCategory.entertainment,
+      key: 'entertainment',
       label: 'Entertainment',
       icon: Icons.movie,
       isEssential: false,
     ),
     _CategoryInfo(
-      key: VariableExpenseCategory.health,
+      key: 'health',
       label: 'Health & Wellness',
       icon: Icons.medical_services,
       isEssential: true,
     ),
     _CategoryInfo(
-      key: VariableExpenseCategory.other,
+      key: 'other',
       label: 'Other',
       icon: Icons.receipt,
       isEssential: false,
@@ -71,21 +64,6 @@ class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
     for (final category in _categories) {
       _controllers[category.key] = TextEditingController();
     }
-    if (widget.isEditing) {
-      _loadExistingData();
-    }
-  }
-
-  Future<void> _loadExistingData() async {
-    final expenses = await _variableExpenseRepo.getByUserId(widget.userId);
-    _existingExpenses = expenses;
-
-    for (final expense in expenses) {
-      if (_controllers.containsKey(expense.category)) {
-        _controllers[expense.category]!.text = expense.estimatedAmount.toStringAsFixed(0);
-      }
-    }
-    if (mounted) setState(() {});
   }
 
   @override
@@ -148,17 +126,8 @@ class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
               _buildTotal(),
               const SizedBox(height: AppTheme.spacing16),
               ElevatedButton(
-                onPressed: _isLoading ? null : _continue,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppTheme.white,
-                        ),
-                      )
-                    : Text(widget.isEditing ? 'Save' : 'Continue'),
+                onPressed: _continue,
+                child: Text(widget.isEditing ? 'Save' : 'Continue'),
               ),
               if (!widget.isEditing) ...[
                 const SizedBox(height: AppTheme.spacing16),
@@ -197,7 +166,7 @@ class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           Text(
-            '₹${total.toStringAsFixed(0)}',
+            '\u20B9${total.toStringAsFixed(0)}',
             style: Theme.of(context).textTheme.titleLarge,
           ),
         ],
@@ -205,53 +174,22 @@ class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
     );
   }
 
-  Future<void> _continue() async {
-    setState(() => _isLoading = true);
-
-    try {
-      // Delete existing expenses if editing
-      if (widget.isEditing) {
-        for (final expense in _existingExpenses) {
-          if (expense.id != null) {
-            await _variableExpenseRepo.delete(expense.id!);
-          }
-        }
-      }
-
-      for (final category in _categories) {
-        final amount = double.tryParse(_controllers[category.key]!.text) ?? 0;
-        if (amount > 0) {
-          await _variableExpenseRepo.addExpense(
-            userId: widget.userId,
-            category: category.key,
-            estimatedAmount: amount,
-            isEssential: category.isEssential,
-          );
-        }
-      }
-
-      if (mounted) {
-        if (widget.isEditing) {
-          Navigator.of(context).pop();
-        } else {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => SavingsSetupScreen(userId: widget.userId),
-            ),
-          );
-        }
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+  void _continue() {
+    if (widget.isEditing) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => const SavingsSetupScreen(),
+        ),
+      );
     }
   }
 
   void _skip(BuildContext context) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => SavingsSetupScreen(userId: widget.userId),
+        builder: (_) => const SavingsSetupScreen(),
       ),
     );
   }
@@ -323,7 +261,7 @@ class _CategoryField extends StatelessWidget {
             textAlign: TextAlign.right,
             decoration: const InputDecoration(
               hintText: '0',
-              prefixText: '₹ ',
+              prefixText: '\u20B9 ',
               contentPadding: EdgeInsets.symmetric(
                 horizontal: AppTheme.spacing12,
                 vertical: AppTheme.spacing12,

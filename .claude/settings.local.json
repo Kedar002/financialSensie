@@ -9,7 +9,9 @@
       "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(flutter analyze:*)",
-      "Bash(flutter pub get:*)"
+      "Bash(flutter pub get:*)",
+      "Bash(flutter run:*)",
+      "Bash(taskkill:*)"
     ]
   }
 }
