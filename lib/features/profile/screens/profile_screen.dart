@@ -1,17 +1,27 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/cycle_settings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../onboarding/screens/income_setup_screen.dart';
 import '../../onboarding/screens/expenses_setup_screen.dart';
 import '../../onboarding/screens/variable_budget_setup_screen.dart';
 import '../../onboarding/screens/savings_setup_screen.dart';
+import 'cycle_settings_screen.dart';
 import 'knowledge_screen.dart';
 
 /// Profile screen - Your financial setup.
-/// Four sections. Nothing more.
+/// Five settings. One link. Nothing more.
 /// Steve Jobs would approve.
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  // In-memory settings (will connect to database later)
+  CycleSettings _cycleSettings = CycleSettings.defaultSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +84,13 @@ class ProfileScreen extends StatelessWidget {
           label: 'Savings',
           value: Formatters.currency(savings),
           onTap: () => _editSavings(context),
+        ),
+        _buildDivider(),
+        _buildSettingRow(
+          context,
+          label: 'Budget Cycle',
+          value: _cycleSettings.displayLabel,
+          onTap: () => _editCycle(context),
         ),
       ],
     );
@@ -197,6 +214,20 @@ class ProfileScreen extends StatelessWidget {
         builder: (_) => const SavingsSetupScreen(isEditing: true),
       ),
     );
+  }
+
+  Future<void> _editCycle(BuildContext context) async {
+    final newSettings = await Navigator.of(context).push<CycleSettings>(
+      MaterialPageRoute(
+        builder: (_) => CycleSettingsScreen(currentSettings: _cycleSettings),
+      ),
+    );
+
+    if (newSettings != null) {
+      setState(() {
+        _cycleSettings = newSettings;
+      });
+    }
   }
 
   void _openKnowledge(BuildContext context) {

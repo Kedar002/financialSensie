@@ -118,24 +118,39 @@ Two options (configurable):
 
 ## Budget Cycle Configuration
 
-### Default: Calendar Month
+Users can configure their budget cycle in Profile → Budget Cycle.
+
+### Option 1: Calendar Month (Default)
 
 ```dart
-BudgetCycle.currentMonth(budget: 25000)
+CycleSettings.calendarMonth()
 // Start: 1st of current month
 // End: Last day of current month
+// Example: Jan 1 → Jan 31
 ```
 
-### Custom: Salary Day Cycle
+### Option 2: Paycheck Cycle (Custom Day)
 
 ```dart
-BudgetCycle.fromCycleDay(cycleDay: 25, budget: 25000)
-// If today is Jan 28:
-//   Start: Dec 25
-//   End: Jan 24
-// If today is Jan 20:
-//   Start: Dec 25
-//   End: Jan 24
+CycleSettings.customDay(25)
+// Start: 25th of one month
+// End: 24th of next month
+// Example: If today is Jan 28 → Dec 25 to Jan 24
+// Example: If today is Jan 20 → Dec 25 to Jan 24
+```
+
+**Note:** Custom day is restricted to 1-28 to avoid issues with short months (February).
+
+### How It Works
+
+```
+┌──────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  CycleSettings   │────▶│   BudgetCycle   │────▶│  Calculations   │
+│                  │     │                 │     │                 │
+│ • type           │     │ • startDate     │     │ • plannedDaily  │
+│ • customStartDay │     │ • endDate       │     │ • rollingDaily  │
+└──────────────────┘     │ • budget        │     └─────────────────┘
+                         └─────────────────┘
 ```
 
 ---
@@ -166,9 +181,11 @@ BudgetCycle.fromCycleDay(cycleDay: 25, budget: 25000)
 
 | File | Purpose |
 |------|---------|
-| `lib/core/models/budget_cycle.dart` | Cycle configuration |
+| `lib/core/models/cycle_settings.dart` | User's cycle preference |
+| `lib/core/models/budget_cycle.dart` | Cycle configuration (dates) |
 | `lib/core/services/budget_calculator.dart` | Calculation logic |
 | `lib/features/home/screens/home_screen.dart` | UI integration |
+| `lib/features/profile/screens/cycle_settings_screen.dart` | Cycle settings UI |
 
 ### Key Classes
 

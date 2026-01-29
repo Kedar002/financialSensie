@@ -1,3 +1,5 @@
+import 'cycle_settings.dart';
+
 /// Budget cycle configuration.
 /// Defines when a budget cycle starts and ends.
 class BudgetCycle {
@@ -24,6 +26,19 @@ class BudgetCycle {
 
     return !normalizedDate.isBefore(normalizedStart) &&
            !normalizedDate.isAfter(normalizedEnd);
+  }
+
+  /// Create a cycle from CycleSettings.
+  factory BudgetCycle.fromSettings({
+    required CycleSettings settings,
+    required double budget,
+  }) {
+    final dates = settings.getCurrentCycleDates();
+    return BudgetCycle(
+      startDate: dates.start,
+      endDate: dates.end,
+      monthlyVariableBudget: budget,
+    );
   }
 
   /// Create a cycle for the current month (1st to last day).

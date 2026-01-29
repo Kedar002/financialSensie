@@ -170,11 +170,12 @@ List of planned expenses/savings goals including emergency fund.
 Minimal settings screen showing financial configuration and access to knowledge base.
 
 **Key Elements:**
-- **Setup Section** - Four tappable rows (iOS Settings style)
+- **Setup Section** - Five tappable rows (iOS Settings style)
   - Income → Edit income screen
   - Fixed Expenses → Edit expenses screen
   - Variable Budget → Edit budget screen
   - Savings → Edit savings screen
+  - Budget Cycle → Edit cycle settings
 - **Learn Section** - Link to Knowledge screen
   - "How it works" with subtitle
 
@@ -191,7 +192,36 @@ Minimal settings screen showing financial configuration and access to knowledge 
 
 ---
 
-### 6. Knowledge Screen
+### 6. Cycle Settings Screen
+
+**Status:** Completed
+
+**Description:**
+Configure when your budget cycle starts. Two options: calendar month or custom paycheck cycle.
+
+**Key Elements:**
+- **Cycle Type Selection** - Two options
+  - Calendar month (1st to end of month)
+  - Paycheck cycle (custom start day)
+- **Day Selector** - Appears when custom cycle selected
+  - +/- buttons to select day (1-28)
+  - Restricted to 28 to avoid short month issues
+- **Preview** - Shows current cycle dates and duration
+
+**Design Principles Applied:**
+- Two clear options (not a long list)
+- Selected state: Black fill with white text
+- Unselected state: White with border
+- Day selector is simple +/- (no complex picker)
+- Live preview updates as you change settings
+
+**Files:**
+- `lib/features/profile/screens/cycle_settings_screen.dart`
+- `lib/core/models/cycle_settings.dart`
+
+---
+
+### 7. Knowledge Screen
 
 **Status:** Completed
 
@@ -227,6 +257,7 @@ Explains the app philosophy and budget calculation logic in simple, human terms.
 | Goals Screen | Goals Tracker | `lib/features/goals/screens/goals_screen.dart` | Completed |
 | Add Goal Screen | Goals Tracker | `lib/features/goals/screens/add_goal_screen.dart` | Completed |
 | Profile Screen | Settings | `lib/features/profile/screens/profile_screen.dart` | Completed |
+| Cycle Settings Screen | Budget Cycle | `lib/features/profile/screens/cycle_settings_screen.dart` | Completed |
 | Knowledge Screen | How It Works | `lib/features/profile/screens/knowledge_screen.dart` | Completed |
 | Welcome Screen | Onboarding | `lib/features/onboarding/screens/welcome_screen.dart` | Completed |
 | Income Setup Screen | Onboarding | `lib/features/onboarding/screens/income_setup_screen.dart` | Completed |
@@ -244,6 +275,8 @@ Explains the app philosophy and budget calculation logic in simple, human terms.
 | ExpenseCategory | Enum: needs, wants, savings | `lib/features/home/models/expense.dart` |
 | BudgetCycle | Budget cycle configuration (start/end dates, budget amount) | `lib/core/models/budget_cycle.dart` |
 | BudgetSnapshot | Calculated budget state (planned, rolling, spent, remaining) | `lib/core/services/budget_calculator.dart` |
+| CycleSettings | User's cycle preference (calendar month or custom day) | `lib/core/models/cycle_settings.dart` |
+| CycleType | Enum: calendarMonth, customDay | `lib/core/models/cycle_settings.dart` |
 
 ## Services
 
