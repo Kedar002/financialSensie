@@ -150,7 +150,7 @@ class EmergencyFundScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.lightbulb_outline, size: 16, color: AppTheme.gray600),
+                const Icon(Icons.info_outline, size: 16, color: AppTheme.gray600),
                 const SizedBox(width: AppTheme.spacing8),
                 Expanded(
                   child: Text(

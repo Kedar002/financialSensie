@@ -28,7 +28,7 @@ class GoalsScreen extends StatelessWidget {
                     ),
                     IconButton(
                       onPressed: () => _addGoal(context),
-                      icon: const Icon(Icons.add),
+                      icon: const Icon(Icons.add, size: 24),
                     ),
                   ],
                 ),
@@ -66,7 +66,7 @@ class GoalsScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: const Icon(
-                    Icons.shield_outlined,
+                    Icons.lock_outline,
                     size: 20,
                     color: AppTheme.black,
                   ),

@@ -23,37 +23,37 @@ class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
     _CategoryInfo(
       key: 'food',
       label: 'Food & Dining',
-      icon: Icons.restaurant,
+      icon: Icons.restaurant_outlined,
       isEssential: true,
     ),
     _CategoryInfo(
       key: 'transport',
       label: 'Transport',
-      icon: Icons.directions_car,
+      icon: Icons.directions_car_outlined,
       isEssential: true,
     ),
     _CategoryInfo(
       key: 'shopping',
       label: 'Shopping',
-      icon: Icons.shopping_bag,
+      icon: Icons.shopping_bag_outlined,
       isEssential: false,
     ),
     _CategoryInfo(
       key: 'entertainment',
       label: 'Entertainment',
-      icon: Icons.movie,
+      icon: Icons.movie_outlined,
       isEssential: false,
     ),
     _CategoryInfo(
       key: 'health',
       label: 'Health & Wellness',
-      icon: Icons.medical_services,
+      icon: Icons.favorite_outline,
       isEssential: true,
     ),
     _CategoryInfo(
       key: 'other',
       label: 'Other',
-      icon: Icons.receipt,
+      icon: Icons.more_horiz,
       isEssential: false,
     ),
   ];
@@ -82,7 +82,7 @@ class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
               backgroundColor: AppTheme.white,
               elevation: 0,
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppTheme.black),
+                icon: const Icon(Icons.chevron_left, color: AppTheme.black),
                 onPressed: () => Navigator.pop(context),
               ),
               title: const Text('Edit Budget'),

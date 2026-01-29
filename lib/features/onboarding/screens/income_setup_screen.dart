@@ -33,7 +33,7 @@ class _IncomeSetupScreenState extends State<IncomeSetupScreen> {
               backgroundColor: AppTheme.white,
               elevation: 0,
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppTheme.black),
+                icon: const Icon(Icons.chevron_left, color: AppTheme.black),
                 onPressed: () => Navigator.pop(context),
               ),
               title: const Text('Edit Income'),
