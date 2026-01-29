@@ -5,67 +5,43 @@ import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/progress_bar.dart';
 import 'add_fund_screen.dart';
 
-/// Emergency Fund screen - shows runway and progress.
+/// Emergency Fund screen - the Safety tab.
+/// Shows runway and progress towards emergency fund goal.
 /// Clean, focused on the key metric: months of safety.
 class EmergencyFundScreen extends StatelessWidget {
   const EmergencyFundScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.white,
-      appBar: AppBar(
-        backgroundColor: AppTheme.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Emergency Fund'),
-        actions: [
-          TextButton(
-            onPressed: () => _addToFund(context),
-            child: const Text(
-              'Add',
-              style: TextStyle(
-                color: AppTheme.black,
-                fontWeight: FontWeight.w600,
-              ),
+    return SafeArea(
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: AppTheme.spacing24),
+            Text(
+              'Safety',
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(AppTheme.spacing24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildRunwayCard(context),
-              const SizedBox(height: AppTheme.spacing24),
-              _buildProgressCard(context),
-              const SizedBox(height: AppTheme.spacing24),
-              _buildDetailsCard(context),
-              const SizedBox(height: AppTheme.spacing32),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.spacing24),
-          child: ElevatedButton(
-            onPressed: () => _addToFund(context),
-            child: const Text('Add to Fund'),
-          ),
+            const SizedBox(height: AppTheme.spacing32),
+            _buildRunwayCard(context),
+            const SizedBox(height: AppTheme.spacing24),
+            _buildProgressCard(context),
+            const SizedBox(height: AppTheme.spacing24),
+            _buildDetailsCard(context),
+            const SizedBox(height: AppTheme.spacing32),
+            _buildAddButton(context),
+            const SizedBox(height: AppTheme.spacing64),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildRunwayCard(BuildContext context) {
-    // Placeholder values
+    // Placeholder values - will come from database
     const runway = 2.3;
 
     return AppCard(
@@ -209,6 +185,13 @@ class EmergencyFundScreen extends StatelessWidget {
               : Theme.of(context).textTheme.bodyLarge,
         ),
       ],
+    );
+  }
+
+  Widget _buildAddButton(BuildContext context) {
+    return ElevatedButton(
+      onPressed: () => _addToFund(context),
+      child: const Text('Add to Fund'),
     );
   }
 

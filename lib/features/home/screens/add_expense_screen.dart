@@ -5,7 +5,7 @@ import '../models/expense.dart';
 
 /// Add expense screen.
 /// One purpose: Log what you spent.
-/// Clean. Fast. Done.
+/// Select category, then subcategory from Profile settings.
 class AddExpenseScreen extends StatefulWidget {
   final DateTime date;
 
@@ -23,10 +23,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _noteController = TextEditingController();
   final _amountFocusNode = FocusNode();
   ExpenseCategory _selectedCategory = ExpenseCategory.needs;
+  ExpenseSubcategory? _selectedSubcategory;
 
   @override
   void initState() {
     super.initState();
+    // Set default subcategory
+    _selectedSubcategory = ExpenseSubcategory.otherFixed;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _amountFocusNode.requestFocus();
     });
@@ -42,7 +45,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   bool get _canSave {
     final amount = double.tryParse(_amountController.text) ?? 0;
-    return amount > 0;
+    return amount > 0 && _selectedSubcategory != null;
   }
 
   @override
@@ -60,6 +63,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               _buildAmountInput(),
               const SizedBox(height: AppTheme.spacing32),
               _buildCategorySelector(),
+              const SizedBox(height: AppTheme.spacing24),
+              _buildSubcategorySelector(),
               const SizedBox(height: AppTheme.spacing32),
               _buildNoteInput(),
               const Spacer(),
@@ -154,7 +159,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           final isSelected = _selectedCategory == category;
           return Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _selectedCategory = category),
+              onTap: () {
+                setState(() {
+                  _selectedCategory = category;
+                  // Reset subcategory and select default "Other" for the new category
+                  final subs = ExpenseSubcategory.forCategory(category);
+                  _selectedSubcategory = subs.isNotEmpty ? subs.last : null;
+                });
+              },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
@@ -176,6 +188,53 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           );
         }).toList(),
       ),
+    );
+  }
+
+  Widget _buildSubcategorySelector() {
+    final subcategories = ExpenseSubcategory.forCategory(_selectedCategory);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'From',
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+        const SizedBox(height: AppTheme.spacing12),
+        Wrap(
+          spacing: AppTheme.spacing8,
+          runSpacing: AppTheme.spacing8,
+          children: subcategories.map((sub) {
+            final isSelected = _selectedSubcategory == sub;
+            return GestureDetector(
+              onTap: () => setState(() => _selectedSubcategory = sub),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spacing16,
+                  vertical: AppTheme.spacing12,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppTheme.black : AppTheme.white,
+                  border: Border.all(
+                    color: isSelected ? AppTheme.black : AppTheme.gray200,
+                  ),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+                child: Text(
+                  sub.label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected ? AppTheme.white : AppTheme.black,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -237,11 +296,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   void _save() {
     final amount = double.tryParse(_amountController.text) ?? 0;
-    if (amount <= 0) return;
+    if (amount <= 0 || _selectedSubcategory == null) return;
 
     final expense = Expense.create(
       amount: amount,
       category: _selectedCategory,
+      subcategory: _selectedSubcategory!,
       note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
       date: widget.date,
     );

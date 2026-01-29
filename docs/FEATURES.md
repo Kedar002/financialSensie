@@ -74,7 +74,7 @@ The core screen of the app. Shows how much the user can safely spend today with 
 **Status:** Completed
 
 **Description:**
-Full-screen modal for logging expenses. Minimal, focused on one action: enter what you spent.
+Full-screen modal for logging expenses. Select category, then subcategory from Profile settings. Shows exactly where money is being spent.
 
 **Key Elements:**
 - **Header** - Cancel button (text), date label, clean layout
@@ -87,17 +87,33 @@ Full-screen modal for logging expenses. Minimal, focused on one action: enter wh
   - Unselected: Gray text, transparent background
   - Smooth 200ms animation on selection
   - Default: "Needs" (most common)
+- **Subcategory Selector** - Chip-style selection (appears below category)
+  - Shows subcategories from Profile settings
+  - Needs: Rent/EMI, Utilities & Bills, Other Fixed, Food & Dining, Transport, Health & Wellness
+  - Wants: Shopping, Entertainment, Other
+  - Savings: Emergency Fund, Goals
+  - Default: Last option ("Other" for Needs/Wants, "Goals" for Savings)
 - **Note Input** - Optional description field
   - Placeholder: "What was this for?"
-- **Done Button** - Disabled until valid amount entered
+- **Done Button** - Disabled until amount entered AND subcategory selected
   - Subtle opacity animation for disabled state
+
+**Budget Connections:**
+| Category | Subcategories | Source in Profile |
+|----------|---------------|-------------------|
+| Needs | Rent/EMI, Utilities, Other Fixed | Fixed Expenses |
+| Needs | Food, Transport, Health | Variable Budget (Essential) |
+| Wants | Shopping, Entertainment, Other | Variable Budget (Lifestyle) |
+| Savings | Emergency Fund | Safety Tab |
+| Savings | Goals | Goals Tab |
 
 **Design Principles Applied:**
 - One action per screen
 - Large, easy-to-use input
-- Three category buckets (Needs/Wants/Savings - aligned with 50/30/20 rule)
-- Clean segmented control - no icons, just text
+- Subcategory chips connect to Profile settings
+- Clear visual hierarchy: Amount → Category → Subcategory → Note
 - Auto-focus for immediate input
+- Steve Jobs approved minimal chip design
 
 **Files:**
 - `lib/features/home/screens/add_expense_screen.dart`
@@ -198,19 +214,20 @@ Simple step-by-step setup flow for new users.
 
 ---
 
-### 3. Emergency Fund Tracker
+### 3. Safety Tab (Emergency Fund)
 
 **Status:** Completed
 
 **Description:**
-Shows runway (months of survival without income) and progress towards emergency fund goal.
+The Safety tab - shows runway (months of survival without income) and progress towards emergency fund goal. This is a dedicated bottom navigation tab, not a sub-screen.
 
-**Navigation:** Tap Emergency Fund card on Goals screen
+**Tab:** Safety (bottom navigation, index 1)
 
 **Key Elements:**
-- **AppBar** - Back button, title, "Add" text button (quick access)
+- **Header** - "Safety" title (matches other tabs: "Goals", "You")
 - **Runway Card** - Hero metric showing months of survival
   - "You can survive X months without income"
+  - Large displayMedium typography
 - **Progress Card** - Visual progress indicator
   - Progress bar with percentage
   - Current vs target amounts
@@ -219,11 +236,12 @@ Shows runway (months of survival without income) and progress towards emergency 
   - Monthly essentials
   - Still needed (highlighted)
   - Info box explaining the calculation
-- **Bottom Button** - Primary "Add to Fund" action (sticky)
+- **Add to Fund Button** - Primary ElevatedButton at bottom
 
 **Design Principles Applied:**
-- Primary action in two places: AppBar (quick) and bottom (prominent)
-- Bottom button uses `ElevatedButton` (primary style)
+- Matches tab screen pattern (SafeArea + SingleChildScrollView)
+- No AppBar (it's a tab, not a pushed screen)
+- Title matches other tabs ("Safety", "Goals", "You")
 - Information flows top to bottom: status → progress → details → action
 - No decorative elements
 
@@ -261,36 +279,194 @@ Full-screen modal for recording contributions to the emergency fund. Follows the
 
 ---
 
-### 4. Goals Screen (Safety Tab)
+### 4. Goals Tab
 
 **Status:** Completed
 
 **Description:**
-List of planned expenses/savings goals including emergency fund.
+User-created savings goals grouped by timeline. Goals are automatically categorized based on target date and suggest appropriate savings instruments. Design matches the visual richness of the Safety tab.
+
+**Tab:** Goals (bottom navigation, index 2)
+
+**Goal Timeline Categories:**
+| Category | Timeline | Suggested Instruments |
+|----------|----------|----------------------|
+| **Short-term** | < 1 year | Savings Account, Piggy Bank, Fixed Deposit |
+| **Mid-term** | 1-5 years | Mutual Funds, Certificate of Deposit, Recurring Deposit |
+| **Long-term** | > 5 years | Stocks, Index Funds, Bonds |
 
 **Key Elements:**
-- **Header** - "Goals" title with add button (IconButton)
-- **Emergency Fund Card** - Tappable card showing:
-  - Lock icon in gray container
-  - "Emergency Fund" label
-  - Runway in months (subtitle)
-  - Progress percentage
-  - Chevron indicator (shows it's tappable)
-  - Progress bar
-  - Current vs target amounts
-  - Navigates to Emergency Fund screen on tap
-- **Add More Goals** - Call-to-action section
-  - Title and description
-  - "Add Goal" button (placeholder)
+
+**Empty State (no goals):**
+- **Header** - "Goals" title
+- **Empty Card** - AppCard with:
+  - Centered flag icon
+  - "No goals yet" title
+  - "Set a savings goal to start tracking your progress" subtitle
+- **Create Goal Button** - Full-width ElevatedButton
+
+**With Goals:**
+- **Header** - "Goals" title + styled add button (gray background, rounded)
+- **Overview Card** - AppCard showing:
+  - Total saved amount (displayMedium)
+  - "of X target" subtitle
+  - Overall progress bar (8px)
+  - Goal count + completion percentage
+- **Timeline Sections** - Section header with badge
+  - Section title (titleMedium)
+  - Timeline badge ("Under 1 year", "1-5 years", "5+ years")
+- **Goal Cards** - AppCard for each goal:
+  - Name + instrument label
+  - Remaining amount + "to go"
+  - Progress bar with current/target amounts
+  - Chevron indicator
 
 **Design Principles Applied:**
-- Emergency Fund is prominently featured (most important goal)
-- Chevron indicator follows iOS navigation patterns
-- Single card focus (not a cluttered list)
-- Clear visual hierarchy
+- Matches Safety tab visual language (AppCard components)
+- Overview card provides aggregate view
+- 8px progress bars (consistent with Safety)
+- Timeline badges for section context
+- Each goal in its own card for visual hierarchy
+- Tappable cards with proper feedback
 
 **Files:**
+- `lib/features/goals/models/goal.dart` - Goal model with timeline logic
 - `lib/features/goals/screens/goals_screen.dart`
+- `lib/features/goals/screens/add_goal_screen.dart`
+- `lib/features/goals/screens/goal_detail_screen.dart`
+- `lib/features/goals/screens/add_to_goal_screen.dart`
+- `lib/features/goals/screens/edit_goal_screen.dart`
+
+---
+
+### 4.2 Goal Detail Screen
+
+**Status:** Completed
+
+**Description:**
+View and manage a single savings goal. Rich card-based layout matching the Safety tab pattern. Three distinct cards for information hierarchy.
+
+**Key Elements:**
+- **Header** - Back button (styled) + "Edit" button (styled)
+  - Both buttons have gray100 background, rounded corners
+- **Hero Card** - AppCard with:
+  - Goal name + timeline badge (black, white text)
+  - Instrument label (gray subtitle)
+  - "Saved" label + big amount (displayLarge)
+  - "of X target" subtitle
+- **Progress Card** - AppCard with:
+  - "Progress" title + percentage
+  - Full progress bar (8px)
+  - Current/target amounts below
+- **Details Card** - AppCard with:
+  - "Still needed" row (bold value)
+  - Target date row
+  - Save per month row (if not complete)
+  - Info box with actionable tip
+- **Delete Action** - Centered subtle gray text
+- **Bottom Button** - Sticky "Add to Goal" (disabled if complete)
+  - Top border separator
+
+**Delete Confirmation:**
+- Bottom sheet (not dialog)
+- Goal name in title
+- "This will permanently remove your goal and progress."
+- Cancel (outlined) + Delete (filled) buttons side by side
+
+**Design Principles Applied:**
+- Matches Safety tab visual language
+- Three cards create clear information hierarchy
+- Hero number is the focus (how much saved)
+- Timeline badge provides context
+- Info box gives actionable guidance
+- Sticky bottom with visual separator
+- Button disabled when goal complete
+
+**Files:**
+- `lib/features/goals/screens/goal_detail_screen.dart`
+
+---
+
+### 4.3 Add to Goal Screen
+
+**Status:** Completed
+
+**Description:**
+Add funds to a savings goal. Same pattern as Add Fund and Add Expense.
+
+**Key Elements:**
+- **Header** - Cancel, goal name (centered)
+- **Amount Input** - Large ₹ input
+- **Done Button** - Disabled until valid
+
+**Files:**
+- `lib/features/goals/screens/add_to_goal_screen.dart`
+
+---
+
+### 4.4 Edit Goal Screen
+
+**Status:** Completed
+
+**Description:**
+Edit all goal properties: name, target amount, target date, and savings instrument.
+
+**Key Elements:**
+- **Header** - Cancel, "Edit Goal" title
+- **Name Input** - Pre-filled with current name
+- **Target Amount Input** - Pre-filled with current target
+- **Target Date Picker** - Pre-filled with current date
+- **Timeline Info** - Updates when date changes
+- **Instrument Selector** - Pre-selected with current instrument
+  - If timeline changes, suggests new instruments
+  - Keeps current selection if still valid
+- **Save Changes Button** - Disabled until changes made
+
+**Design Principles Applied:**
+- Same layout as Add Goal screen
+- Preserves user's existing choices
+- Smart instrument handling on timeline change
+- Button disabled if no changes or invalid
+
+**Files:**
+- `lib/features/goals/screens/edit_goal_screen.dart`
+
+---
+
+### 4.1 Add Goal Screen
+
+**Status:** Completed
+
+**Description:**
+Full-screen modal for creating a new savings goal with timeline-based categorization and instrument suggestions.
+
+**Key Elements:**
+- **Header** - Cancel button (text), "New Goal" title
+- **Goal Name Input** - Clean text field
+  - Headline question: "What are you saving for?"
+  - Large input with placeholder examples
+  - Auto-focus on open
+- **Target Amount Input** - Large currency input with ₹ prefix
+- **Target Date Picker** - Date selection
+  - Opens native date picker
+  - App calculates timeline category automatically
+- **Timeline Info** - Appears after date selection
+  - Shows badge: "Short-term", "Mid-term", or "Long-term"
+  - Shows timeline description
+- **Instrument Selector** - Chip-style selection
+  - Shows suggested instruments for the timeline
+  - User selects where they'll save
+  - Animated selection state
+- **Create Goal Button** - Disabled until all fields valid
+
+**Design Principles Applied:**
+- Progressive disclosure (instrument selector appears after date)
+- Automatic categorization (user doesn't manually select category)
+- Helpful suggestions based on timeline
+- Consistent with app's input patterns
+- Validation feedback via button opacity
+
+**Files:**
 - `lib/features/goals/screens/add_goal_screen.dart`
 
 ---
@@ -388,10 +564,13 @@ Explains the app philosophy and budget calculation logic in simple, human terms.
 | Add Expense Screen | Expense Logging | `lib/features/home/screens/add_expense_screen.dart` | Completed |
 | Monthly Budget Screen | 50-30-20 Breakdown | `lib/features/home/screens/monthly_budget_screen.dart` | Completed |
 | All Expenses Screen | Expense History | `lib/features/home/screens/all_expenses_screen.dart` | Completed |
-| Emergency Fund Screen | Emergency Fund Tracker | `lib/features/emergency_fund/screens/emergency_fund_screen.dart` | Completed |
-| Add Fund Screen | Emergency Fund Tracker | `lib/features/emergency_fund/screens/add_fund_screen.dart` | Completed |
-| Goals Screen | Goals Tracker | `lib/features/goals/screens/goals_screen.dart` | Completed |
-| Add Goal Screen | Goals Tracker | `lib/features/goals/screens/add_goal_screen.dart` | Completed |
+| Safety Screen | Safety Tab (Emergency Fund) | `lib/features/emergency_fund/screens/emergency_fund_screen.dart` | Completed |
+| Add Fund Screen | Safety Tab | `lib/features/emergency_fund/screens/add_fund_screen.dart` | Completed |
+| Goals Screen | Goals Tab | `lib/features/goals/screens/goals_screen.dart` | Completed |
+| Add Goal Screen | Goals Tab | `lib/features/goals/screens/add_goal_screen.dart` | Completed |
+| Goal Detail Screen | Goals Tab | `lib/features/goals/screens/goal_detail_screen.dart` | Completed |
+| Add to Goal Screen | Goals Tab | `lib/features/goals/screens/add_to_goal_screen.dart` | Completed |
+| Edit Goal Screen | Goals Tab | `lib/features/goals/screens/edit_goal_screen.dart` | Completed |
 | Profile Screen | Settings | `lib/features/profile/screens/profile_screen.dart` | Completed |
 | Cycle Settings Screen | Budget Cycle | `lib/features/profile/screens/cycle_settings_screen.dart` | Completed |
 | Knowledge Screen | How It Works | `lib/features/profile/screens/knowledge_screen.dart` | Completed |

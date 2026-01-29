@@ -3,49 +3,58 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/goal.dart';
 
-/// Add goal screen - create a new savings goal.
-/// User enters name, amount, target date.
-/// App suggests savings instrument based on timeline.
-class AddGoalScreen extends StatefulWidget {
-  const AddGoalScreen({super.key});
+/// Edit goal screen - modify name, target amount, date, and instrument.
+class EditGoalScreen extends StatefulWidget {
+  final Goal goal;
+
+  const EditGoalScreen({
+    super.key,
+    required this.goal,
+  });
 
   @override
-  State<AddGoalScreen> createState() => _AddGoalScreenState();
+  State<EditGoalScreen> createState() => _EditGoalScreenState();
 }
 
-class _AddGoalScreenState extends State<AddGoalScreen> {
-  final _nameController = TextEditingController();
-  final _amountController = TextEditingController();
-  final _nameFocusNode = FocusNode();
-
-  DateTime? _targetDate;
-  SavingsInstrument? _selectedInstrument;
+class _EditGoalScreenState extends State<EditGoalScreen> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _amountController;
+  late DateTime _targetDate;
+  late SavingsInstrument _selectedInstrument;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _nameFocusNode.requestFocus();
-    });
+    _nameController = TextEditingController(text: widget.goal.name);
+    _amountController = TextEditingController(
+      text: widget.goal.targetAmount.toStringAsFixed(0),
+    );
+    _targetDate = widget.goal.targetDate;
+    _selectedInstrument = widget.goal.instrument;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _amountController.dispose();
-    _nameFocusNode.dispose();
     super.dispose();
   }
 
-  GoalTimeline? get _timeline {
-    if (_targetDate == null) return null;
-    return GoalTimelineExtension.fromTargetDate(_targetDate!);
-  }
+  GoalTimeline get _timeline => GoalTimelineExtension.fromTargetDate(_targetDate);
 
   bool get _canSave {
     final name = _nameController.text.trim();
     final amount = double.tryParse(_amountController.text) ?? 0;
-    return name.isNotEmpty && amount > 0 && _targetDate != null && _selectedInstrument != null;
+    return name.isNotEmpty && amount > 0;
+  }
+
+  bool get _hasChanges {
+    final newName = _nameController.text.trim();
+    final newAmount = double.tryParse(_amountController.text) ?? 0;
+    return newName != widget.goal.name ||
+        newAmount != widget.goal.targetAmount ||
+        _targetDate != widget.goal.targetDate ||
+        _selectedInstrument != widget.goal.instrument;
   }
 
   @override
@@ -65,12 +74,10 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
               _buildAmountInput(),
               const SizedBox(height: AppTheme.spacing32),
               _buildDatePicker(),
-              if (_timeline != null) ...[
-                const SizedBox(height: AppTheme.spacing32),
-                _buildTimelineInfo(),
-                const SizedBox(height: AppTheme.spacing24),
-                _buildInstrumentSelector(),
-              ],
+              const SizedBox(height: AppTheme.spacing32),
+              _buildTimelineInfo(),
+              const SizedBox(height: AppTheme.spacing24),
+              _buildInstrumentSelector(),
               const SizedBox(height: AppTheme.spacing48),
               _buildSaveButton(),
               const SizedBox(height: AppTheme.spacing24),
@@ -97,7 +104,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
           ),
         ),
         Text(
-          'New Goal',
+          'Edit Goal',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(width: 50),
@@ -110,13 +117,12 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'What are you saving for?',
-          style: Theme.of(context).textTheme.headlineMedium,
+          'Goal name',
+          style: Theme.of(context).textTheme.labelMedium,
         ),
-        const SizedBox(height: AppTheme.spacing16),
+        const SizedBox(height: AppTheme.spacing12),
         TextField(
           controller: _nameController,
-          focusNode: _nameFocusNode,
           style: Theme.of(context).textTheme.titleLarge,
           decoration: InputDecoration(
             hintText: 'e.g., Goa Trip, New Laptop',
@@ -203,10 +209,8 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _targetDate != null ? _formatDate(_targetDate!) : 'Select date',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: _targetDate != null ? AppTheme.black : AppTheme.gray400,
-                      ),
+                  _formatDate(_targetDate),
+                  style: Theme.of(context).textTheme.bodyLarge,
                 ),
                 const Icon(
                   Icons.calendar_today_outlined,
@@ -222,7 +226,6 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
   }
 
   Widget _buildTimelineInfo() {
-    final timeline = _timeline!;
     return Container(
       padding: const EdgeInsets.all(AppTheme.spacing16),
       decoration: BoxDecoration(
@@ -241,7 +244,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
               borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
             ),
             child: Text(
-              timeline.label,
+              _timeline.label,
               style: const TextStyle(
                 color: AppTheme.white,
                 fontSize: 12,
@@ -252,7 +255,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
           const SizedBox(width: AppTheme.spacing12),
           Expanded(
             child: Text(
-              timeline.description,
+              _timeline.description,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
@@ -262,8 +265,12 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
   }
 
   Widget _buildInstrumentSelector() {
-    final timeline = _timeline!;
-    final instruments = timeline.suggestedInstruments;
+    final instruments = _timeline.suggestedInstruments;
+
+    // If current instrument is not in suggested list, add it
+    final allInstruments = instruments.contains(_selectedInstrument)
+        ? instruments
+        : [_selectedInstrument, ...instruments];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,7 +281,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
         ),
         const SizedBox(height: AppTheme.spacing4),
         Text(
-          'Recommended for ${timeline.label.toLowerCase()} goals',
+          'Recommended for ${_timeline.label.toLowerCase()} goals',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: AppTheme.gray500,
               ),
@@ -283,7 +290,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
         Wrap(
           spacing: AppTheme.spacing8,
           runSpacing: AppTheme.spacing8,
-          children: instruments.map((instrument) {
+          children: allInstruments.map((instrument) {
             final isSelected = _selectedInstrument == instrument;
             return GestureDetector(
               onTap: () => setState(() => _selectedInstrument = instrument),
@@ -317,12 +324,13 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
   }
 
   Widget _buildSaveButton() {
+    final canSave = _canSave && _hasChanges;
     return AnimatedOpacity(
-      opacity: _canSave ? 1.0 : 0.4,
+      opacity: canSave ? 1.0 : 0.4,
       duration: const Duration(milliseconds: 200),
       child: ElevatedButton(
-        onPressed: _canSave ? _save : null,
-        child: const Text('Create Goal'),
+        onPressed: canSave ? _save : null,
+        child: const Text('Save Changes'),
       ),
     );
   }
@@ -331,9 +339,9 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _targetDate ?? now.add(const Duration(days: 30)),
+      initialDate: _targetDate,
       firstDate: now.add(const Duration(days: 1)),
-      lastDate: now.add(const Duration(days: 365 * 30)), // 30 years max
+      lastDate: now.add(const Duration(days: 365 * 30)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -352,11 +360,10 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
     if (picked != null) {
       setState(() {
         _targetDate = picked;
-        // Reset instrument selection when timeline changes
+        // Reset instrument if not in new timeline's suggested list
         final newTimeline = GoalTimelineExtension.fromTargetDate(picked);
-        if (_selectedInstrument != null &&
-            !newTimeline.suggestedInstruments.contains(_selectedInstrument)) {
-          _selectedInstrument = null;
+        if (!newTimeline.suggestedInstruments.contains(_selectedInstrument)) {
+          _selectedInstrument = newTimeline.suggestedInstruments.first;
         }
       });
     }
@@ -373,15 +380,15 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
   void _save() {
     final name = _nameController.text.trim();
     final amount = double.tryParse(_amountController.text) ?? 0;
-    if (name.isEmpty || amount <= 0 || _targetDate == null || _selectedInstrument == null) return;
+    if (name.isEmpty || amount <= 0) return;
 
-    final goal = Goal.create(
+    final updatedGoal = widget.goal.copyWith(
       name: name,
       targetAmount: amount,
-      targetDate: _targetDate!,
-      instrument: _selectedInstrument!,
+      targetDate: _targetDate,
+      instrument: _selectedInstrument,
     );
 
-    Navigator.pop(context, goal);
+    Navigator.pop(context, updatedGoal);
   }
 }
