@@ -760,6 +760,78 @@ Explains the app philosophy and budget calculation logic in simple, human terms.
 
 ---
 
+### 8. Financial Literacy (Learn Feature)
+
+**Status:** Completed
+
+**Description:**
+Comprehensive educational content for financial literacy. Ten hardcoded lessons covering essential personal finance concepts. Transforms the app into an educational tool for attaining financial freedom.
+
+**Navigation:** Profile screen → Learn section → "Financial Literacy"
+
+**Folder Structure:**
+```
+lib/features/learn/
+├── data/
+│   └── lessons_data.dart      # All hardcoded lesson content
+├── models/
+│   └── lesson.dart            # Lesson and section models
+└── screens/
+    ├── learn_screen.dart      # Topics list
+    └── lesson_screen.dart     # Individual lesson view
+```
+
+**The 10 Lessons:**
+| # | Title | Key Concept |
+|---|-------|-------------|
+| 1 | Why Personal Finance Matters | Foundation of financial freedom |
+| 2 | The 50-30-20 Rule | Simple budgeting framework |
+| 3 | Emergency Fund | Financial safety net |
+| 4 | The Power of Compound Interest | Time value of money |
+| 5 | Good Debt vs Bad Debt | Strategic borrowing |
+| 6 | Pay Yourself First | Savings automation |
+| 7 | Budgeting Basics | Intentional spending |
+| 8 | Setting Financial Goals | SMART goal framework |
+| 9 | Avoiding Lifestyle Inflation | Wealth preservation |
+| 10 | Building Long-term Wealth | Marathon mindset |
+
+**Lesson Section Types:**
+- `paragraph` - Regular text with optional title
+- `highlight` - Black box with white text for key statements
+- `bulletList` - Bullet points with optional intro
+- `quote` - Famous quotes with left border
+- `keyTakeaway` - Summary card at end of lesson
+
+**Key Elements - Learn Screen:**
+- Header with back button
+- Intro text explaining the feature
+- Numbered lesson cards (1-10)
+- Each card shows: number, title, subtitle, chevron
+
+**Key Elements - Lesson Screen:**
+- Back button only (minimal header)
+- Large title (displayMedium)
+- Subtitle in gray
+- Sections rendered based on type
+- Generous spacing between sections
+
+**Design Principles Applied:**
+- Clean reading experience (no distractions)
+- Visual hierarchy through section types
+- Highlight boxes for key statements
+- Quote styling with left border
+- Key takeaway cards for retention
+- Numbered lessons show progress
+- Hardcoded content (no network, offline-first)
+
+**Files:**
+- `lib/features/learn/models/lesson.dart`
+- `lib/features/learn/data/lessons_data.dart`
+- `lib/features/learn/screens/learn_screen.dart`
+- `lib/features/learn/screens/lesson_screen.dart`
+
+---
+
 ## Screen Inventory
 
 | Screen Name | Feature | File Path | Status |
@@ -780,6 +852,8 @@ Explains the app philosophy and budget calculation logic in simple, human terms.
 | Profile Screen | Settings | `lib/features/profile/screens/profile_screen.dart` | Completed |
 | Cycle Settings Screen | Budget Cycle | `lib/features/profile/screens/cycle_settings_screen.dart` | Completed |
 | Knowledge Screen | How It Works | `lib/features/profile/screens/knowledge_screen.dart` | Completed |
+| Learn Screen | Financial Literacy | `lib/features/learn/screens/learn_screen.dart` | Completed |
+| Lesson Screen | Individual Lesson | `lib/features/learn/screens/lesson_screen.dart` | Completed |
 | Welcome Screen | Onboarding | `lib/features/onboarding/screens/welcome_screen.dart` | Completed |
 | Income Setup Screen | Onboarding | `lib/features/onboarding/screens/income_setup_screen.dart` | Completed |
 | Expenses Setup Screen | Onboarding | `lib/features/onboarding/screens/expenses_setup_screen.dart` | Completed |

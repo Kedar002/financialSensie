@@ -8,6 +8,7 @@ import '../../onboarding/screens/expenses_setup_screen.dart';
 import '../../onboarding/screens/variable_budget_setup_screen.dart';
 import '../../onboarding/screens/savings_setup_screen.dart';
 import '../../plan/screens/financial_plan_screen.dart';
+import '../../learn/screens/learn_screen.dart';
 import 'cycle_settings_screen.dart';
 import 'knowledge_screen.dart';
 
@@ -199,6 +200,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          'Learn',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppTheme.gray500,
+              ),
+        ),
+        const SizedBox(height: AppTheme.spacing8),
+        GestureDetector(
+          onTap: () => _openLearn(context),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Financial Literacy',
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: AppTheme.spacing4),
+                    Text(
+                      '10 lessons to master personal finance',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppTheme.gray500,
+                          ),
+                    ),
+                  ],
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  color: AppTheme.gray400,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+        _buildDivider(),
         GestureDetector(
           onTap: () => _openKnowledge(context),
           behavior: HitTestBehavior.opaque,
@@ -233,6 +275,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _openLearn(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const LearnScreen(),
+      ),
     );
   }
 
