@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../screens/income_screen.dart';
+import '../screens/transactions_screen.dart';
 import '../sheets/add_expense_sheet.dart';
 
 class ExpensesTab extends StatelessWidget {
@@ -60,21 +61,12 @@ class ExpensesTab extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'January 2025',
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: Color(0xFF8E8E93),
-                              ),
-                            ),
-                            const Icon(
-                              Icons.keyboard_arrow_down,
-                              size: 20,
-                              color: Color(0xFF8E8E93),
-                            ),
-                          ],
+                        const Text(
+                          'January 2025',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Color(0xFF8E8E93),
+                          ),
                         ),
                         const SizedBox(height: 12),
                         const Text(
@@ -135,32 +127,35 @@ class ExpensesTab extends StatelessWidget {
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF2F2F7),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Spent',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Color(0xFF8E8E93),
+                              child: GestureDetector(
+                                onTap: () => _showSpendingBreakdown(context),
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF2F2F7),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Spent',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF8E8E93),
+                                        ),
                                       ),
-                                    ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      '₹2,550',
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.black,
+                                      SizedBox(height: 4),
+                                      Text(
+                                        '₹2,550',
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -173,15 +168,36 @@ class ExpensesTab extends StatelessWidget {
                   const SizedBox(height: 24),
 
                   // Recent Transactions
-                  const Padding(
-                    padding: EdgeInsets.only(left: 4, bottom: 12),
-                    child: Text(
-                      'Recent',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, right: 4, bottom: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Recent',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const TransactionsScreen(),
+                            ),
+                          ),
+                          child: const Text(
+                            'View All',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF007AFF),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
@@ -230,6 +246,173 @@ class ExpensesTab extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const AddExpenseSheet(),
+    );
+  }
+
+  void _showSpendingBreakdown(BuildContext context) {
+    const income = 5000.0;
+    const needs = 1200.0;
+    const wants = 350.0;
+    const savings = 650.0;
+    const total = needs + wants + savings;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E5E5),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Spending Breakdown',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                    ),
+                    Text(
+                      '₹${total.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                _SpendingCategory(
+                  name: 'Needs',
+                  amount: needs,
+                  income: income,
+                  color: const Color(0xFF007AFF),
+                ),
+                const SizedBox(height: 16),
+                _SpendingCategory(
+                  name: 'Wants',
+                  amount: wants,
+                  income: income,
+                  color: const Color(0xFFFF9500),
+                ),
+                const SizedBox(height: 16),
+                _SpendingCategory(
+                  name: 'Savings',
+                  amount: savings,
+                  income: income,
+                  color: const Color(0xFF34C759),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SpendingCategory extends StatelessWidget {
+  final String name;
+  final double amount;
+  final double income;
+  final Color color;
+
+  const _SpendingCategory({
+    required this.name,
+    required this.amount,
+    required this.income,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final percentage = (amount / income * 100).round();
+    final barWidth = amount / income;
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              name,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.black,
+              ),
+            ),
+            Row(
+              children: [
+                Text(
+                  '₹${amount.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Color.fromRGBO(color.r.toInt(), color.g.toInt(), color.b.toInt(), 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '$percentage%',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 6,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF2F2F7),
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: barWidth.clamp(0.0, 1.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

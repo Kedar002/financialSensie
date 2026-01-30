@@ -12,7 +12,8 @@ class IncomeScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios, size: 20),
+          color: const Color(0xFF007AFF),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -25,7 +26,8 @@ class IncomeScreen extends StatelessWidget {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: Colors.black),
+            icon: const Icon(Icons.add, size: 28),
+            color: const Color(0xFF007AFF),
             onPressed: () => _showAddIncome(context),
           ),
         ],
@@ -48,7 +50,7 @@ class IncomeScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    '\$5,850',
+                    '₹5,850',
                     style: TextStyle(
                       fontSize: 34,
                       fontWeight: FontWeight.w600,
@@ -74,7 +76,7 @@ class IncomeScreen extends StatelessWidget {
                   children: [
                     _IncomeSourceItem(
                       name: 'Salary',
-                      amount: '\$5,000',
+                      amount: '₹5,000',
                       frequency: 'Monthly',
                       onTap: () {},
                     ),
@@ -86,7 +88,7 @@ class IncomeScreen extends StatelessWidget {
                     ),
                     _IncomeSourceItem(
                       name: 'Freelance',
-                      amount: '\$850',
+                      amount: '₹850',
                       frequency: 'Variable',
                       onTap: () {},
                     ),

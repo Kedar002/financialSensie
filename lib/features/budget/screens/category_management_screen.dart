@@ -38,7 +38,8 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios, size: 20),
+          color: const Color(0xFF007AFF),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -51,7 +52,8 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: Colors.black),
+            icon: const Icon(Icons.add, size: 28),
+            color: const Color(0xFF007AFF),
             onPressed: () => _showAddCategory(),
           ),
         ],
