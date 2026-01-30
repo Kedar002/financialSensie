@@ -22,6 +22,8 @@
 11. [Data Validation Rules](#11-data-validation-rules)
 12. [Query Patterns](#12-query-patterns)
 13. [Backup & Recovery](#13-backup--recovery)
+14. [Budget History Feature](#14-budget-history-feature)
+15. [Features Without Database Storage](#15-features-without-database-storage)
 
 ---
 
@@ -1306,6 +1308,142 @@ SET current_amount = (
 
 ---
 
+## 14. Budget History Feature
+
+The Budget History feature allows users to view past months' reports (up to 2 years).
+
+### 14.1 Data Source
+
+Budget history is derived from the `monthly_summaries` table (Section 7.2).
+
+### 14.2 Budget History Query
+
+**Get all months for history (last 2 years):**
+```sql
+SELECT
+    ms.year,
+    ms.month,
+    ms.total_expense as total_spent,
+    (ms.needs_budget + ms.wants_budget + ms.savings_budget) as total_budget,
+    ((ms.needs_budget + ms.wants_budget + ms.savings_budget) - ms.total_expense) as remaining,
+    ms.needs_budget,
+    ms.needs_spent,
+    ms.wants_budget,
+    ms.wants_spent,
+    ms.savings_budget,
+    ms.savings_spent
+FROM monthly_summaries ms
+WHERE ms.user_id = ?
+AND (ms.year * 12 + ms.month) >= ((strftime('%Y', 'now') * 12 + strftime('%m', 'now')) - 24)
+ORDER BY ms.year DESC, ms.month DESC;
+```
+
+**Get detailed breakdown for a specific month:**
+```sql
+SELECT
+    c.budget_type,
+    c.name as category_name,
+    SUM(e.amount) as amount_spent,
+    COUNT(e.id) as transaction_count
+FROM expenses e
+JOIN categories c ON e.category_id = c.id
+WHERE e.user_id = ?
+AND strftime('%Y', e.date) = ?
+AND strftime('%m', e.date) = ?
+AND e.type = 'expense'
+AND e.deleted_at IS NULL
+GROUP BY c.budget_type, c.id
+ORDER BY c.budget_type, amount_spent DESC;
+```
+
+### 14.3 MonthlyBudgetSummary Model
+
+```dart
+/// Used by Budget History screens
+class MonthlyBudgetSummary {
+  final int year;
+  final int month;
+  final String monthName;
+  final double totalBudget;
+  final double totalSpent;
+  final double remaining;
+
+  // Optional: detailed breakdown
+  final double? needsBudget;
+  final double? needsSpent;
+  final double? wantsBudget;
+  final double? wantsSpent;
+  final double? savingsBudget;
+  final double? savingsSpent;
+}
+```
+
+---
+
+## 15. Features Without Database Storage
+
+Some features use hardcoded data and don't require database tables.
+
+### 15.1 Financial Literacy (Learn Feature)
+
+The Learn feature provides educational content that is hardcoded in the app.
+
+**Why Hardcoded:**
+- Content doesn't change per user
+- No personalization needed
+- Reduces complexity (no content sync)
+- Works completely offline
+- Faster loading (no database queries)
+
+**Data Location:** `lib/features/learn/data/lessons_data.dart`
+
+**Data Structure:**
+```dart
+class Lesson {
+  final String id;
+  final String title;
+  final String subtitle;
+  final String icon;
+  final List<LessonSection> sections;
+}
+
+class LessonSection {
+  final String? title;
+  final String content;
+  final LessonSectionType type;  // paragraph, highlight, bulletList, quote, keyTakeaway
+  final List<String>? bulletPoints;
+}
+```
+
+**10 Lessons Included:**
+| # | Lesson ID | Title |
+|---|-----------|-------|
+| 1 | why-finance-matters | Why Personal Finance Matters |
+| 2 | 50-30-20-rule | The 50-30-20 Rule |
+| 3 | emergency-fund | Emergency Fund |
+| 4 | compound-interest | The Power of Compound Interest |
+| 5 | good-vs-bad-debt | Good Debt vs Bad Debt |
+| 6 | pay-yourself-first | Pay Yourself First |
+| 7 | budgeting-basics | Budgeting Basics |
+| 8 | financial-goals | Setting Financial Goals |
+| 9 | lifestyle-inflation | Avoiding Lifestyle Inflation |
+| 10 | building-wealth | Building Long-term Wealth |
+
+### 15.2 App Knowledge (How It Works)
+
+The Knowledge screen explaining app logic is also hardcoded.
+
+**Data Location:** `lib/features/profile/screens/knowledge_screen.dart`
+
+**Content Sections:**
+- The Philosophy
+- The Math (4 steps)
+- Two Numbers (Planned vs Available)
+- Example calculation
+- Three Buckets (Needs, Wants, Savings)
+
+---
+
 ## Appendix A: Quick Reference
 
 ### Tables Overview
@@ -1319,9 +1457,15 @@ SET current_amount = (
 | goals | Savings goals | id, target_amount, current_amount |
 | goal_transactions | Goal contributions | id, goal_id, amount |
 | emergency_fund | Safety net | id, current_amount, target_months |
+| emergency_fund_transactions | Fund contributions | id, fund_id, amount |
 | debts | Debt tracking | id, remaining_amount, interest_rate |
+| debt_payments | Debt payments | id, debt_id, amount, principal |
 | user_settings | Preferences | user_id, key, value |
 | budget_cycles | Budget periods | start_date, end_date, budgets |
+| daily_summaries | Daily aggregates | user_id, date, totals |
+| monthly_summaries | Monthly aggregates (Budget History) | user_id, year, month, budgets, spent |
+| category_summaries | Per-category monthly | user_id, category_id, year, month |
+| financial_plan_progress | 10-step plan tracking | user_id, step, status |
 
 ### Amount Conversion
 
@@ -1350,6 +1494,26 @@ enum CycleType { calendarMonth, customDay }
 | Version | Date | Changes |
 |---------|------|---------|
 | 1 | Jan 2026 | Initial schema |
+| 1.1 | Jan 2026 | Added Budget History queries, documented Learn feature (hardcoded) |
+
+---
+
+## Appendix C: Feature to Table Mapping
+
+| Feature | Primary Table(s) | Notes |
+|---------|------------------|-------|
+| Home Screen | expenses, budget_cycles | Daily spending view |
+| Add Expense | expenses, categories | Transaction logging |
+| Monthly Budget | budget_cycles, expenses | 50-30-20 breakdown |
+| Budget History | monthly_summaries | Past months reports |
+| All Expenses | expenses, categories | Filtered expense list |
+| Safety Tab | emergency_fund, emergency_fund_transactions | Emergency fund tracking |
+| Goals Tab | goals, goal_transactions | Savings goals |
+| Debt Screen | debts, debt_payments | Debt management |
+| Financial Plan | financial_plan_progress | 10-step tracking |
+| Profile/Settings | user_settings | User preferences |
+| Learn (Financial Literacy) | *None (hardcoded)* | Educational content |
+| How It Works | *None (hardcoded)* | App explanation |
 
 ---
 
