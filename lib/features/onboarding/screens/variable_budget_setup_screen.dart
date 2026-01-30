@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import 'savings_setup_screen.dart';
 
-/// Variable budget setup - estimate spending for each category.
+/// Variable budget setup - simplified to ONE question.
+/// Categories can be added later in the app.
 class VariableBudgetSetupScreen extends StatefulWidget {
   final bool isEditing;
 
@@ -17,60 +18,11 @@ class VariableBudgetSetupScreen extends StatefulWidget {
 }
 
 class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
-  final Map<String, TextEditingController> _controllers = {};
-
-  final List<_CategoryInfo> _categories = [
-    _CategoryInfo(
-      key: 'food',
-      label: 'Food & Dining',
-      icon: Icons.restaurant_outlined,
-      isEssential: true,
-    ),
-    _CategoryInfo(
-      key: 'transport',
-      label: 'Transport',
-      icon: Icons.directions_car_outlined,
-      isEssential: true,
-    ),
-    _CategoryInfo(
-      key: 'shopping',
-      label: 'Shopping',
-      icon: Icons.shopping_bag_outlined,
-      isEssential: false,
-    ),
-    _CategoryInfo(
-      key: 'entertainment',
-      label: 'Entertainment',
-      icon: Icons.movie_outlined,
-      isEssential: false,
-    ),
-    _CategoryInfo(
-      key: 'health',
-      label: 'Health & Wellness',
-      icon: Icons.favorite_outline,
-      isEssential: true,
-    ),
-    _CategoryInfo(
-      key: 'other',
-      label: 'Other',
-      icon: Icons.more_horiz,
-      isEssential: false,
-    ),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    for (final category in _categories) {
-      _controllers[category.key] = TextEditingController();
-    }
-  }
+  final _controller = TextEditingController();
 
   @override
   void dispose() {
-    for (final controller in _controllers.values) {
-      controller.dispose();
-    }
+    _controller.dispose();
     super.dispose();
   }
 
@@ -97,34 +49,28 @@ class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
               if (!widget.isEditing) const SizedBox(height: AppTheme.spacing48),
               Text(
                 widget.isEditing
-                    ? 'Update your budget'
+                    ? 'Update your variable budget'
                     : 'Variable spending',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: AppTheme.spacing8),
               Text(
-                'Estimate how much you spend each month.',
+                'Food, transport, shopping, and other monthly expenses.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
-              const SizedBox(height: AppTheme.spacing24),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: _categories.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: AppTheme.spacing16),
-                  itemBuilder: (context, index) {
-                    final category = _categories[index];
-                    return _CategoryField(
-                      icon: category.icon,
-                      label: category.label,
-                      controller: _controllers[category.key]!,
-                      isEssential: category.isEssential,
-                    );
-                  },
+              const SizedBox(height: AppTheme.spacing32),
+              TextField(
+                controller: _controller,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: Theme.of(context).textTheme.displayMedium,
+                decoration: const InputDecoration(
+                  hintText: '0',
+                  prefixText: '\u20B9 ',
                 ),
+                autofocus: !widget.isEditing,
               ),
-              const SizedBox(height: AppTheme.spacing16),
-              _buildTotal(),
-              const SizedBox(height: AppTheme.spacing16),
+              const Spacer(),
               ElevatedButton(
                 onPressed: _continue,
                 child: Text(widget.isEditing ? 'Save' : 'Continue'),
@@ -138,38 +84,10 @@ class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
                   ),
                 ),
               ],
-              const SizedBox(height: AppTheme.spacing24),
+              const SizedBox(height: AppTheme.spacing48),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildTotal() {
-    double total = 0;
-    for (final controller in _controllers.values) {
-      total += double.tryParse(controller.text) ?? 0;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.spacing16),
-      decoration: BoxDecoration(
-        color: AppTheme.gray100,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Total variable budget',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          Text(
-            '\u20B9${total.toStringAsFixed(0)}',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-        ],
       ),
     );
   }
@@ -191,85 +109,6 @@ class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
       MaterialPageRoute(
         builder: (_) => const SavingsSetupScreen(),
       ),
-    );
-  }
-}
-
-class _CategoryInfo {
-  final String key;
-  final String label;
-  final IconData icon;
-  final bool isEssential;
-
-  const _CategoryInfo({
-    required this.key,
-    required this.label,
-    required this.icon,
-    required this.isEssential,
-  });
-}
-
-class _CategoryField extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final TextEditingController controller;
-  final bool isEssential;
-
-  const _CategoryField({
-    required this.icon,
-    required this.label,
-    required this.controller,
-    required this.isEssential,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: AppTheme.gray100,
-            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-          ),
-          child: Icon(icon, color: AppTheme.black, size: 20),
-        ),
-        const SizedBox(width: AppTheme.spacing12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              if (isEssential)
-                Text(
-                  'Essential',
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-            ],
-          ),
-        ),
-        SizedBox(
-          width: 120,
-          child: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            textAlign: TextAlign.right,
-            decoration: const InputDecoration(
-              hintText: '0',
-              prefixText: '\u20B9 ',
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: AppTheme.spacing12,
-                vertical: AppTheme.spacing12,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

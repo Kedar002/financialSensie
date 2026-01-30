@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import 'income_setup_screen.dart';
 
-/// Welcome screen - minimal, focused.
+/// Welcome screen - minimal, focused, branded.
 /// One clear action: Get Started.
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -14,12 +14,19 @@ class WelcomeScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(AppTheme.spacing24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Spacer(flex: 2),
+              const Spacer(flex: 3),
+              // Logo - centered, prominent
+              Image.asset(
+                'assets/icon/app_icon.png',
+                width: 120,
+                height: 120,
+              ),
+              const SizedBox(height: AppTheme.spacing32),
               Text(
                 'FinanceSensei',
                 style: Theme.of(context).textTheme.displayMedium,
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppTheme.spacing16),
               Text(
@@ -27,8 +34,9 @@ class WelcomeScreen extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: AppTheme.gray600,
                     ),
+                textAlign: TextAlign.center,
               ),
-              const Spacer(flex: 3),
+              const Spacer(flex: 4),
               ElevatedButton(
                 onPressed: () => _navigateToSetup(context),
                 child: const Text('Get Started'),
