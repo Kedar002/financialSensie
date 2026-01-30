@@ -75,6 +75,47 @@ Allows users to save and reuse recurring monthly expense patterns.
 
 Displays discretionary spending categories.
 
+**Components:**
+- Header with menu and action icons
+- Title card showing total wants amount
+- Category grid (2 columns)
+
+**Actions:**
+- Template icon (`file_copy_outlined`) - Opens templates sheet
+- Add icon (`add`) - Opens add category sheet
+- Tap category - Opens edit category sheet
+
+---
+
+### Wants Templates Feature
+**Status:** Implemented (UI only, mock data)
+
+Allows users to save and reuse recurring discretionary expense patterns.
+
+**Files:**
+- `lib/features/budget/sheets/wants_templates_sheet.dart` - Main templates list
+- `lib/features/budget/sheets/wants_template_detail_sheet.dart` - View/import template
+- `lib/features/budget/sheets/wants_template_edit_sheet.dart` - Create/edit template
+
+**Flow:**
+1. Tap template icon in Wants tab header
+2. Templates sheet shows saved templates
+3. Tap template to view details and import
+4. "Create Template" to add new template
+
+**Default Template:**
+```dart
+{
+  'name': 'Monthly Fun',
+  'items': [
+    {'name': 'Dining Out', 'amount': 2000},
+    {'name': 'Entertainment', 'amount': 1500},
+    {'name': 'Subscriptions', 'amount': 500},
+    {'name': 'Shopping', 'amount': 1000},
+  ],
+}
+```
+
 ---
 
 ### Savings Tab
