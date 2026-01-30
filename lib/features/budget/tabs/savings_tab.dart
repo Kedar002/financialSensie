@@ -76,33 +76,32 @@ class SavingsTab extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Savings',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          '₹650 this month',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Color(0xFF8E8E93),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Building your future, one step at a time',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF8E8E93),
-                              ),
+                            const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Total Saved',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: Color(0xFF8E8E93),
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  '₹8,100',
+                                  style: TextStyle(
+                                    fontSize: 34,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF34C759),
+                                    letterSpacing: -1,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const Spacer(),
                             GestureDetector(
                               onTap: () {
                                 Navigator.push(
@@ -125,6 +124,34 @@ class SavingsTab extends StatelessWidget {
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF2F2F7),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'This cycle',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: Color(0xFF8E8E93),
+                                ),
+                              ),
+                              Text(
+                                '+₹650',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF34C759),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),

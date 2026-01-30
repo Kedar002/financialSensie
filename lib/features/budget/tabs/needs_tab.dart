@@ -86,7 +86,7 @@ class NeedsTab extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          '₹1,200 this month',
+                          '₹1,200 this cycle',
                           style: TextStyle(
                             fontSize: 15,
                             color: Color(0xFF8E8E93),
@@ -96,7 +96,7 @@ class NeedsTab extends StatelessWidget {
                         Row(
                           children: [
                             const Text(
-                              'Essential expenses you can\'t skip',
+                              'Resets each pay cycle',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Color(0xFF8E8E93),

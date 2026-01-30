@@ -86,7 +86,7 @@ class WantsTab extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          '₹350 this month',
+                          '₹350 this cycle',
                           style: TextStyle(
                             fontSize: 15,
                             color: Color(0xFF8E8E93),
@@ -96,7 +96,7 @@ class WantsTab extends StatelessWidget {
                         Row(
                           children: [
                             const Text(
-                              'Lifestyle choices, not necessities',
+                              'Resets each pay cycle',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Color(0xFF8E8E93),

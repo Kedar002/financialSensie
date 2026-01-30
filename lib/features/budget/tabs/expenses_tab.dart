@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../screens/income_screen.dart';
 import '../screens/transactions_screen.dart';
 import '../sheets/add_expense_sheet.dart';
+import '../widgets/cycle_indicator.dart';
 
 class ExpensesTab extends StatelessWidget {
   final VoidCallback onMenuTap;
@@ -61,14 +62,15 @@ class ExpensesTab extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'January 2025',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Color(0xFF8E8E93),
+                        GestureDetector(
+                          onTap: () => _showCycleSettings(context),
+                          child: CycleIndicator(
+                            cycleStart: DateTime(2025, 1, 15),
+                            cycleEnd: DateTime(2025, 2, 14),
+                            progress: 0.5,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 20),
                         const Text(
                           '₹2,450',
                           style: TextStyle(
@@ -246,6 +248,210 @@ class ExpensesTab extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const AddExpenseSheet(),
+    );
+  }
+
+  void _showCycleSettings(BuildContext context) {
+    int selectedDay = 15;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E5E5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Pay Cycle',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'When do you receive your paycheck?',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFF8E8E93),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Every month on the',
+                        style: TextStyle(
+                          fontSize: 17,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => _showDayPicker(context, selectedDay, (day) {
+                          setState(() => selectedDay = day);
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF2F2F7),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              Text(
+                                _formatDayWithSuffix(selectedDay),
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.keyboard_arrow_down,
+                                size: 20,
+                                color: Color(0xFF8E8E93),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Save',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDayWithSuffix(int day) {
+    if (day >= 11 && day <= 13) return '${day}th';
+    switch (day % 10) {
+      case 1: return '${day}st';
+      case 2: return '${day}nd';
+      case 3: return '${day}rd';
+      default: return '${day}th';
+    }
+  }
+
+  void _showDayPicker(BuildContext context, int currentDay, Function(int) onSelect) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: 300,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 17,
+                        color: Color(0xFF007AFF),
+                      ),
+                    ),
+                  ),
+                  const Text(
+                    'Select Day',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Text(
+                      'Done',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF007AFF),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListWheelScrollView.useDelegate(
+                itemExtent: 44,
+                physics: const FixedExtentScrollPhysics(),
+                controller: FixedExtentScrollController(initialItem: currentDay - 1),
+                onSelectedItemChanged: (index) => onSelect(index + 1),
+                childDelegate: ListWheelChildBuilderDelegate(
+                  childCount: 28,
+                  builder: (context, index) {
+                    final day = index + 1;
+                    return Center(
+                      child: Text(
+                        _formatDayWithSuffix(day),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
