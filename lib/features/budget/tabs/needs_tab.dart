@@ -304,6 +304,8 @@ class _NeedsTabState extends State<NeedsTab> {
         return Icons.wifi_outlined;
       case 'water_drop_outlined':
         return Icons.water_drop_outlined;
+      case 'savings_outlined':
+        return Icons.savings_outlined;
       default:
         return Icons.category_outlined;
     }
@@ -333,6 +335,7 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
     {'name': 'medical_services_outlined', 'icon': Icons.medical_services_outlined, 'label': 'Health'},
     {'name': 'school_outlined', 'icon': Icons.school_outlined, 'label': 'Education'},
     {'name': 'phone_outlined', 'icon': Icons.phone_outlined, 'label': 'Phone'},
+    {'name': 'savings_outlined', 'icon': Icons.savings_outlined, 'label': 'Buffer'},
   ];
 
   @override
@@ -526,6 +529,7 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
     {'name': 'medical_services_outlined', 'icon': Icons.medical_services_outlined, 'label': 'Health'},
     {'name': 'school_outlined', 'icon': Icons.school_outlined, 'label': 'Education'},
     {'name': 'phone_outlined', 'icon': Icons.phone_outlined, 'label': 'Phone'},
+    {'name': 'savings_outlined', 'icon': Icons.savings_outlined, 'label': 'Buffer'},
   ];
 
   @override

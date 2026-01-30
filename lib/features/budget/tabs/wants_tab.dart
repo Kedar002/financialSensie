@@ -300,6 +300,20 @@ class _WantsTabState extends State<WantsTab> {
         return Icons.sports_esports_outlined;
       case 'flight_outlined':
         return Icons.flight_outlined;
+      case 'local_gas_station_outlined':
+        return Icons.local_gas_station_outlined;
+      case 'breakfast_dining_outlined':
+        return Icons.breakfast_dining_outlined;
+      case 'medication_outlined':
+        return Icons.medication_outlined;
+      case 'set_meal_outlined':
+        return Icons.set_meal_outlined;
+      case 'fitness_center_outlined':
+        return Icons.fitness_center_outlined;
+      case 'eco_outlined':
+        return Icons.eco_outlined;
+      case 'savings_outlined':
+        return Icons.savings_outlined;
       default:
         return Icons.category_outlined;
     }
@@ -329,6 +343,13 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
     {'name': 'palette_outlined', 'icon': Icons.palette_outlined, 'label': 'Hobbies'},
     {'name': 'sports_esports_outlined', 'icon': Icons.sports_esports_outlined, 'label': 'Gaming'},
     {'name': 'flight_outlined', 'icon': Icons.flight_outlined, 'label': 'Travel'},
+    {'name': 'local_gas_station_outlined', 'icon': Icons.local_gas_station_outlined, 'label': 'Petrol'},
+    {'name': 'breakfast_dining_outlined', 'icon': Icons.breakfast_dining_outlined, 'label': 'Oats'},
+    {'name': 'medication_outlined', 'icon': Icons.medication_outlined, 'label': 'Supplement'},
+    {'name': 'set_meal_outlined', 'icon': Icons.set_meal_outlined, 'label': 'Chicken'},
+    {'name': 'fitness_center_outlined', 'icon': Icons.fitness_center_outlined, 'label': 'Protein'},
+    {'name': 'eco_outlined', 'icon': Icons.eco_outlined, 'label': 'Veggies'},
+    {'name': 'savings_outlined', 'icon': Icons.savings_outlined, 'label': 'Buffer'},
   ];
 
   @override
@@ -522,6 +543,13 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
     {'name': 'palette_outlined', 'icon': Icons.palette_outlined, 'label': 'Hobbies'},
     {'name': 'sports_esports_outlined', 'icon': Icons.sports_esports_outlined, 'label': 'Gaming'},
     {'name': 'flight_outlined', 'icon': Icons.flight_outlined, 'label': 'Travel'},
+    {'name': 'local_gas_station_outlined', 'icon': Icons.local_gas_station_outlined, 'label': 'Petrol'},
+    {'name': 'breakfast_dining_outlined', 'icon': Icons.breakfast_dining_outlined, 'label': 'Oats'},
+    {'name': 'medication_outlined', 'icon': Icons.medication_outlined, 'label': 'Supplement'},
+    {'name': 'set_meal_outlined', 'icon': Icons.set_meal_outlined, 'label': 'Chicken'},
+    {'name': 'fitness_center_outlined', 'icon': Icons.fitness_center_outlined, 'label': 'Protein'},
+    {'name': 'eco_outlined', 'icon': Icons.eco_outlined, 'label': 'Veggies'},
+    {'name': 'savings_outlined', 'icon': Icons.savings_outlined, 'label': 'Buffer'},
   ];
 
   @override

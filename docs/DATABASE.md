@@ -72,6 +72,7 @@ Available icons for categories:
 | medical_services_outlined | 🏥 | Healthcare |
 | school_outlined | 🎓 | Education |
 | phone_outlined | 📱 | Phone, Mobile |
+| savings_outlined | 🐷 | Buffer, Savings |
 | category_outlined | 📁 | Default/Other |
 
 ---
@@ -213,6 +214,13 @@ Available icons for wants categories:
 | palette_outlined | 🎨 | Hobbies |
 | sports_esports_outlined | 🎮 | Gaming |
 | flight_outlined | ✈️ | Travel |
+| local_gas_station_outlined | ⛽ | Petrol, Fuel |
+| breakfast_dining_outlined | 🥣 | Oats, Breakfast |
+| medication_outlined | 💊 | Supplements |
+| set_meal_outlined | 🍗 | Chicken, Meat |
+| fitness_center_outlined | 🏋️ | Protein Powder, Gym |
+| eco_outlined | 🥬 | Veggies, Vegetables |
+| savings_outlined | 🐷 | Buffer, Savings |
 | category_outlined | 📁 | Default/Other |
 
 ---
