@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../screens/cycle_complete_screen.dart';
 import '../screens/income_screen.dart';
 import '../screens/spent_screen.dart';
 import '../screens/transactions_screen.dart';
@@ -65,6 +66,7 @@ class ExpensesTab extends StatelessWidget {
                       children: [
                         GestureDetector(
                           onTap: () => _showCycleSettings(context),
+                          onLongPress: () => _showCycleComplete(context),
                           child: CycleIndicator(
                             cycleStart: DateTime(2025, 1, 15),
                             cycleEnd: DateTime(2025, 2, 14),
@@ -252,6 +254,25 @@ class ExpensesTab extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const AddExpenseSheet(),
+    );
+  }
+
+  void _showCycleComplete(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CycleCompleteScreen(
+          cycleName: 'January',
+          cycleStart: DateTime(2025, 1, 15),
+          cycleEnd: DateTime(2025, 2, 14),
+          totalIncome: 50000,
+          totalSpent: 35000,
+          needsSpent: 20000,
+          wantsSpent: 10000,
+          savingsAdded: 5000,
+          onStartNewCycle: () => Navigator.pop(context),
+        ),
+      ),
     );
   }
 
