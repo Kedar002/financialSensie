@@ -158,25 +158,26 @@ class MonthlyBudgetScreen extends StatelessWidget {
   }
 
   Widget _buildBuckets(BuildContext context) {
-    // 50-30-20 rule
-    final needsBudget = totalBudget * 0.50;
-    final wantsBudget = totalBudget * 0.30;
-    final savingsBudget = totalBudget * 0.20;
-
     final needsSpent = _getSpentByCategory(ExpenseCategory.needs);
     final wantsSpent = _getSpentByCategory(ExpenseCategory.wants);
     final savingsSpent = _getSpentByCategory(ExpenseCategory.savings);
+    final totalSpent = needsSpent + wantsSpent + savingsSpent;
+
+    // Calculate actual percentages from total spent
+    final needsActualPercent = totalSpent > 0 ? (needsSpent / totalSpent * 100).round() : 0;
+    final wantsActualPercent = totalSpent > 0 ? (wantsSpent / totalSpent * 100).round() : 0;
+    final savingsActualPercent = totalSpent > 0 ? (savingsSpent / totalSpent * 100).round() : 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'The 50-30-20 Rule',
+          'Spending Breakdown',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: AppTheme.spacing8),
         Text(
-          'Your budget split across three buckets',
+          'Your actual spending vs recommended 50-30-20',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: AppTheme.gray500,
               ),
@@ -185,27 +186,27 @@ class MonthlyBudgetScreen extends StatelessWidget {
         _buildBucket(
           context,
           category: 'Needs',
-          percentage: '50%',
           description: 'Essentials like food, transport, bills',
-          budget: needsBudget,
+          actualPercent: needsActualPercent,
+          targetPercent: 50,
           spent: needsSpent,
         ),
         const SizedBox(height: AppTheme.spacing16),
         _buildBucket(
           context,
           category: 'Wants',
-          percentage: '30%',
           description: 'Lifestyle like dining, entertainment',
-          budget: wantsBudget,
+          actualPercent: wantsActualPercent,
+          targetPercent: 30,
           spent: wantsSpent,
         ),
         const SizedBox(height: AppTheme.spacing16),
         _buildBucket(
           context,
           category: 'Savings',
-          percentage: '20%',
           description: 'Future like investments, emergency fund',
-          budget: savingsBudget,
+          actualPercent: savingsActualPercent,
+          targetPercent: 20,
           spent: savingsSpent,
         ),
       ],
@@ -215,14 +216,16 @@ class MonthlyBudgetScreen extends StatelessWidget {
   Widget _buildBucket(
     BuildContext context, {
     required String category,
-    required String percentage,
     required String description,
-    required double budget,
+    required int actualPercent,
+    required int targetPercent,
     required double spent,
   }) {
-    final progress = budget > 0 ? (spent / budget).clamp(0.0, 1.0) : 0.0;
-    final remaining = budget - spent;
-    final isOver = remaining < 0;
+    final isOverTarget = actualPercent > targetPercent;
+    final isUnderTarget = actualPercent < targetPercent;
+    // For savings, under target is bad; for needs/wants, over target is bad
+    final isSavings = category == 'Savings';
+    final needsAttention = isSavings ? isUnderTarget : isOverTarget;
 
     return Container(
       padding: const EdgeInsets.all(AppTheme.spacing16),
@@ -236,33 +239,12 @@ class MonthlyBudgetScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text(
-                    category,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(width: AppTheme.spacing8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppTheme.spacing8,
-                      vertical: AppTheme.spacing4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.white,
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                    ),
-                    child: Text(
-                      percentage,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: AppTheme.black,
-                          ),
-                    ),
-                  ),
-                ],
+              Text(
+                category,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
               Text(
-                Formatters.currency(budget),
+                Formatters.currency(spent),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ],
@@ -275,23 +257,43 @@ class MonthlyBudgetScreen extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: AppTheme.spacing12),
-          _buildProgressBar(progress),
+          _buildProgressBar(actualPercent / 100),
           const SizedBox(height: AppTheme.spacing12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Spent: ${Formatters.currency(spent)}',
-                style: Theme.of(context).textTheme.bodySmall,
+              Row(
+                children: [
+                  Text(
+                    '$actualPercent%',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: needsAttention ? AppTheme.gray500 : AppTheme.black,
+                        ),
+                  ),
+                  const SizedBox(width: AppTheme.spacing4),
+                  Text(
+                    'spent',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.gray500,
+                        ),
+                  ),
+                ],
               ),
-              Text(
-                isOver
-                    ? 'Over: ${Formatters.currency(remaining.abs())}'
-                    : 'Left: ${Formatters.currency(remaining)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isOver ? AppTheme.gray500 : AppTheme.black,
-                      fontWeight: FontWeight.w600,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spacing8,
+                  vertical: AppTheme.spacing4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.white,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                ),
+                child: Text(
+                  '$targetPercent% target',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: AppTheme.gray500,
+                      ),
+                ),
               ),
             ],
           ),
