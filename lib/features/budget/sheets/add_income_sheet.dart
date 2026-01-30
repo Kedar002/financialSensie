@@ -89,7 +89,7 @@ class _AddIncomeSheetState extends State<AddIncomeSheet> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: 'Amount',
-                  prefixText: '\$ ',
+                  prefixText: '₹ ',
                   filled: true,
                   fillColor: const Color(0xFFF9F9F9),
                   border: OutlineInputBorder(

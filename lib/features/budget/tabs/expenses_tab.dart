@@ -35,14 +35,10 @@ class ExpensesTab extends StatelessWidget {
                   const Spacer(),
                   GestureDetector(
                     onTap: () => _showAddSheet(context),
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: const Icon(Icons.add, size: 20, color: Colors.white),
+                    child: const Icon(
+                      Icons.add,
+                      size: 28,
+                      color: Color(0xFF007AFF),
                     ),
                   ),
                 ],

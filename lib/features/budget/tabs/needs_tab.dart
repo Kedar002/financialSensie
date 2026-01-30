@@ -51,14 +51,10 @@ class NeedsTab extends StatelessWidget {
                         builder: (_) => const AddExpenseSheet(preselectedType: 'needs'),
                       );
                     },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: const Icon(Icons.add, size: 20, color: Colors.white),
+                    child: const Icon(
+                      Icons.add,
+                      size: 28,
+                      color: Color(0xFF007AFF),
                     ),
                   ),
                 ],

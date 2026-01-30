@@ -43,8 +43,8 @@ class _AddSavingsSheetState extends State<AddSavingsSheet> {
   }
 
   String get _formattedAmount {
-    if (_amount.isEmpty) return '\$0';
-    return '\$$_amount';
+    if (_amount.isEmpty) return '₹0';
+    return '₹$_amount';
   }
 
   @override

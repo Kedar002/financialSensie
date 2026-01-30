@@ -131,7 +131,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
-                  '\$',
+                  '₹',
                   style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.w300,
