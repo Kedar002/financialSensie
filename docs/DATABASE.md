@@ -263,7 +263,83 @@ Available icons for wants categories:
 
 ---
 
+## Savings Tables
+
+### savings_goals
+
+Stores savings goals with progress tracking.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier |
+| name | TEXT | NOT NULL | Goal name (e.g., "Emergency Fund") |
+| target | INTEGER | DEFAULT 0 | Target amount to save |
+| saved | INTEGER | DEFAULT 0 | Amount saved so far |
+| monthly | INTEGER | DEFAULT 0 | Monthly contribution amount |
+| target_date | TEXT | NOT NULL | ISO 8601 target date |
+| icon | TEXT | NOT NULL | Icon identifier |
+| created_at | TEXT | NOT NULL | ISO 8601 timestamp |
+
+**Example:**
+```sql
+INSERT INTO savings_goals (name, target, saved, monthly, target_date, icon, created_at)
+VALUES ('Emergency Fund', 50000, 10000, 5000, '2025-12-31T00:00:00.000Z', 'shield_outlined', '2025-01-31T10:00:00.000Z');
+```
+
+---
+
+## Savings Icon Reference
+
+Available icons for savings goals:
+
+| Icon Name | Display | Use Case |
+|-----------|---------|----------|
+| shield_outlined | 🛡️ | Emergency Fund |
+| flight_outlined | ✈️ | Travel, Vacation |
+| trending_up_outlined | 📈 | Investments, Retirement |
+| directions_car_outlined | 🚗 | Car, Vehicle |
+| home_outlined | 🏠 | Home, Down Payment |
+| school_outlined | 🎓 | Education |
+| phone_iphone_outlined | 📱 | Gadgets, Electronics |
+| celebration_outlined | 🎉 | Events, Wedding |
+| medical_services_outlined | 🏥 | Medical, Health |
+| shopping_bag_outlined | 🛍️ | Large Purchase |
+| savings_outlined | 🐷 | Default/Other |
+
+---
+
+## Savings Repository Methods
+
+### SavingsRepository
+
+| Method | Description |
+|--------|-------------|
+| `getAll()` | Returns all goals ordered by created_at |
+| `getById(int id)` | Returns single goal by ID |
+| `insert(SavingsGoal)` | Creates new goal, returns ID |
+| `update(SavingsGoal)` | Updates existing goal |
+| `delete(int id)` | Deletes goal by ID |
+| `addMoney(int id, int amount)` | Adds amount to goal's saved value |
+| `getTotalSaved()` | Returns sum of all saved amounts |
+
+---
+
 ## Migrations
+
+### Version 5 (Savings)
+
+```sql
+CREATE TABLE savings_goals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  target INTEGER DEFAULT 0,
+  saved INTEGER DEFAULT 0,
+  monthly INTEGER DEFAULT 0,
+  target_date TEXT NOT NULL,
+  icon TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+```
 
 ### Version 4 (Wants)
 

@@ -21,7 +21,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -83,6 +83,19 @@ class DatabaseService {
         amount INTEGER DEFAULT 0,
         created_at TEXT NOT NULL,
         FOREIGN KEY (template_id) REFERENCES wants_templates (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE savings_goals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        target INTEGER DEFAULT 0,
+        saved INTEGER DEFAULT 0,
+        monthly INTEGER DEFAULT 0,
+        target_date TEXT NOT NULL,
+        icon TEXT NOT NULL,
+        created_at TEXT NOT NULL
       )
     ''');
   }
@@ -148,6 +161,21 @@ class DatabaseService {
           amount INTEGER DEFAULT 0,
           created_at TEXT NOT NULL,
           FOREIGN KEY (template_id) REFERENCES wants_templates (id) ON DELETE CASCADE
+        )
+      ''');
+    }
+
+    if (oldVersion < 5) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS savings_goals (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          target INTEGER DEFAULT 0,
+          saved INTEGER DEFAULT 0,
+          monthly INTEGER DEFAULT 0,
+          target_date TEXT NOT NULL,
+          icon TEXT NOT NULL,
+          created_at TEXT NOT NULL
         )
       ''');
     }

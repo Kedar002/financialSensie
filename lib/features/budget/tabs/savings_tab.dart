@@ -1,45 +1,44 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/savings_goal.dart';
+import '../../../core/repositories/savings_repository.dart';
 import '../screens/goal_details_screen.dart';
 
-class SavingsTab extends StatelessWidget {
+class SavingsTab extends StatefulWidget {
   final VoidCallback onMenuTap;
 
   const SavingsTab({super.key, required this.onMenuTap});
 
-  final List<Map<String, dynamic>> _goals = const [
-    {
-      'name': 'Emergency Fund',
-      'target': 50000,
-      'saved': 4800,
-      'monthly': 400,
-      'targetDate': '2025-12-31',
-      'icon': Icons.shield_outlined,
-    },
-    {
-      'name': 'Vacation',
-      'target': 25000,
-      'saved': 900,
-      'monthly': 150,
-      'targetDate': '2025-06-15',
-      'icon': Icons.flight_outlined,
-    },
-    {
-      'name': 'Retirement',
-      'target': 500000,
-      'saved': 2400,
-      'monthly': 100,
-      'targetDate': '2045-01-01',
-      'icon': Icons.trending_up_outlined,
-    },
-    {
-      'name': 'New Car',
-      'target': 300000,
-      'saved': 0,
-      'monthly': 0,
-      'targetDate': '2026-12-31',
-      'icon': Icons.directions_car_outlined,
-    },
-  ];
+  @override
+  State<SavingsTab> createState() => _SavingsTabState();
+}
+
+class _SavingsTabState extends State<SavingsTab> {
+  final SavingsRepository _repository = SavingsRepository();
+  List<SavingsGoal> _goals = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGoals();
+  }
+
+  Future<void> _loadGoals() async {
+    final goals = await _repository.getAll();
+    setState(() {
+      _goals = goals;
+      _isLoading = false;
+    });
+  }
+
+  int get _totalSaved => _goals.fold(0, (sum, goal) => sum + goal.saved);
+
+  String _formatAmount(int amount) {
+    return amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +54,7 @@ class SavingsTab extends StatelessWidget {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: onMenuTap,
+                    onTap: widget.onMenuTap,
                     child: Container(
                       width: 36,
                       height: 36,
@@ -81,109 +80,145 @@ class SavingsTab extends StatelessWidget {
 
             // Content
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  // Title Card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       children: [
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Total Saved',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: Color(0xFF8E8E93),
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  '₹8,100',
-                                  style: TextStyle(
-                                    fontSize: 34,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF34C759),
-                                    letterSpacing: -1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
+                        // Title Card
                         Container(
-                          padding: const EdgeInsets.all(14),
+                          padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF2F2F7),
-                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'This cycle',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: Color(0xFF8E8E93),
-                                ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Total Saved',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          color: Color(0xFF8E8E93),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '₹${_formatAmount(_totalSaved)}',
+                                        style: const TextStyle(
+                                          fontSize: 34,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF34C759),
+                                          letterSpacing: -1,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                              Text(
-                                '+₹650',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF34C759),
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF2F2F7),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Goals',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        color: Color(0xFF8E8E93),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${_goals.length}',
+                                      style: const TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
+
+                        const SizedBox(height: 16),
+
+                        // Goals Grid or Empty State
+                        if (_goals.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 48),
+                            child: Column(
+                              children: [
+                                const Icon(
+                                  Icons.savings_outlined,
+                                  size: 48,
+                                  color: Color(0xFFC7C7CC),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'No savings goals yet',
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF8E8E93),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                GestureDetector(
+                                  onTap: () => _showAddGoal(context),
+                                  child: const Text(
+                                    'Create your first goal',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Color(0xFF007AFF),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 1.1,
+                            ),
+                            itemCount: _goals.length,
+                            itemBuilder: (context, index) {
+                              final goal = _goals[index];
+                              return GestureDetector(
+                                onTap: () => _showGoalDetails(context, goal),
+                                child: _SavingsCard(
+                                  name: goal.name,
+                                  target: goal.target,
+                                  saved: goal.saved,
+                                  icon: _getIconData(goal.icon),
+                                ),
+                              );
+                            },
+                          ),
+
+                        const SizedBox(height: 32),
                       ],
                     ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Goals Grid
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: 1.1,
-                    ),
-                    itemCount: _goals.length,
-                    itemBuilder: (context, index) {
-                      final goal = _goals[index];
-                      return GestureDetector(
-                        onTap: () => _showGoalDetails(context, goal),
-                        child: _SavingsCard(
-                          name: goal['name'],
-                          target: goal['target'],
-                          saved: goal['saved'],
-                          icon: goal['icon'],
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 32),
-                ],
-              ),
             ),
           ],
         ),
@@ -196,17 +231,52 @@ class SavingsTab extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const _AddGoalSheet(),
+      builder: (context) => _AddGoalSheet(
+        onSave: (goal) async {
+          await _repository.insert(goal);
+          await _loadGoals();
+        },
+      ),
     );
   }
 
-  void _showGoalDetails(BuildContext context, Map<String, dynamic> goal) {
-    Navigator.push(
+  void _showGoalDetails(BuildContext context, SavingsGoal goal) async {
+    final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (context) => GoalDetailsScreen(goal: goal),
       ),
     );
+    if (result == true) {
+      await _loadGoals();
+    }
+  }
+
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+      case 'shield_outlined':
+        return Icons.shield_outlined;
+      case 'flight_outlined':
+        return Icons.flight_outlined;
+      case 'trending_up_outlined':
+        return Icons.trending_up_outlined;
+      case 'directions_car_outlined':
+        return Icons.directions_car_outlined;
+      case 'home_outlined':
+        return Icons.home_outlined;
+      case 'school_outlined':
+        return Icons.school_outlined;
+      case 'phone_iphone_outlined':
+        return Icons.phone_iphone_outlined;
+      case 'celebration_outlined':
+        return Icons.celebration_outlined;
+      case 'medical_services_outlined':
+        return Icons.medical_services_outlined;
+      case 'shopping_bag_outlined':
+        return Icons.shopping_bag_outlined;
+      default:
+        return Icons.savings_outlined;
+    }
   }
 }
 
@@ -283,7 +353,6 @@ class _SavingsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          // Progress bar
           Container(
             height: 4,
             decoration: BoxDecoration(
@@ -308,7 +377,9 @@ class _SavingsCard extends StatelessWidget {
 }
 
 class _AddGoalSheet extends StatefulWidget {
-  const _AddGoalSheet();
+  final Future<void> Function(SavingsGoal goal) onSave;
+
+  const _AddGoalSheet({required this.onSave});
 
   @override
   State<_AddGoalSheet> createState() => _AddGoalSheetState();
@@ -319,6 +390,18 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
   final _amountController = TextEditingController();
   final _monthlyController = TextEditingController();
   DateTime? _targetDate;
+  String _selectedIcon = 'savings_outlined';
+
+  final List<Map<String, dynamic>> _icons = [
+    {'name': 'shield_outlined', 'icon': Icons.shield_outlined, 'label': 'Emergency'},
+    {'name': 'flight_outlined', 'icon': Icons.flight_outlined, 'label': 'Travel'},
+    {'name': 'trending_up_outlined', 'icon': Icons.trending_up_outlined, 'label': 'Invest'},
+    {'name': 'directions_car_outlined', 'icon': Icons.directions_car_outlined, 'label': 'Car'},
+    {'name': 'home_outlined', 'icon': Icons.home_outlined, 'label': 'Home'},
+    {'name': 'school_outlined', 'icon': Icons.school_outlined, 'label': 'Education'},
+    {'name': 'phone_iphone_outlined', 'icon': Icons.phone_iphone_outlined, 'label': 'Gadget'},
+    {'name': 'celebration_outlined', 'icon': Icons.celebration_outlined, 'label': 'Event'},
+  ];
 
   @override
   void dispose() {
@@ -372,7 +455,7 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
       return {
         'title': 'Short-term (< 1 year)',
         'suggestion': 'Savings Account or Cash',
-        'description': 'Keep funds liquid and easily accessible. Consider a high-yield savings account or simply keep in your bank.',
+        'description': 'Keep funds liquid and easily accessible. Consider a high-yield savings account.',
         'icon': Icons.savings_outlined,
         'color': const Color(0xFF34C759),
       };
@@ -380,7 +463,7 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
       return {
         'title': 'Medium-term (1-5 years)',
         'suggestion': 'Fixed Deposit or Debt Mutual Funds',
-        'description': 'Balance safety with better returns. FDs offer guaranteed returns, while debt funds may offer slightly higher returns with low risk.',
+        'description': 'Balance safety with better returns. FDs offer guaranteed returns.',
         'icon': Icons.account_balance_outlined,
         'color': const Color(0xFF007AFF),
       };
@@ -388,7 +471,7 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
       return {
         'title': 'Long-term (> 5 years)',
         'suggestion': 'Equity Mutual Funds or Index Funds',
-        'description': 'Time is on your side. Equity investments historically outperform other asset classes over long periods despite short-term volatility.',
+        'description': 'Time is on your side. Equity investments historically outperform over long periods.',
         'icon': Icons.trending_up_outlined,
         'color': const Color(0xFFFF9500),
       };
@@ -437,22 +520,56 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
                 ),
                 const SizedBox(height: 24),
 
-                // Specific - Goal name
-                const Text(
-                  'WHAT ARE YOU SAVING FOR?',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF8E8E93),
-                    letterSpacing: 0.5,
+                // Icon selector
+                SizedBox(
+                  height: 70,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _icons.length,
+                    separatorBuilder: (context, index) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      final iconData = _icons[index];
+                      final isSelected = _selectedIcon == iconData['name'];
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedIcon = iconData['name']),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFF34C759) : const Color(0xFFF2F2F7),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                iconData['icon'],
+                                size: 24,
+                                color: isSelected ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              iconData['label'],
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isSelected ? const Color(0xFF34C759) : const Color(0xFF8E8E93),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
-                const SizedBox(height: 8),
+
+                const SizedBox(height: 20),
+
+                // Goal name
                 TextField(
                   controller: _nameController,
                   textCapitalization: TextCapitalization.words,
                   decoration: InputDecoration(
-                    hintText: 'e.g. Emergency Fund, Vacation',
+                    hintText: 'Goal name (e.g. Emergency Fund)',
                     filled: true,
                     fillColor: const Color(0xFFF2F2F7),
                     border: OutlineInputBorder(
@@ -465,24 +582,14 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
 
-                // Measurable - Target amount
-                const Text(
-                  'TARGET AMOUNT',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF8E8E93),
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
+                // Target amount
                 TextField(
                   controller: _amountController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    hintText: '0',
+                    hintText: 'Target amount',
                     prefixText: '₹ ',
                     filled: true,
                     fillColor: const Color(0xFFF2F2F7),
@@ -496,19 +603,9 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
 
-                // Time-bound - Target date
-                const Text(
-                  'TARGET DATE',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF8E8E93),
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
+                // Target date
                 GestureDetector(
                   onTap: _selectDate,
                   child: Container(
@@ -540,54 +637,42 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
 
                 // Investment suggestion
                 if (suggestion != null) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: (suggestion['color'] as Color).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: (suggestion['color'] as Color).withOpacity(0.3),
-                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Row(
-                          children: [
-                            Icon(
-                              suggestion['icon'] as IconData,
-                              size: 20,
-                              color: suggestion['color'] as Color,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              suggestion['title'] as String,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: suggestion['color'] as Color,
+                        Icon(
+                          suggestion['icon'] as IconData,
+                          size: 20,
+                          color: suggestion['color'] as Color,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                suggestion['suggestion'] as String,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          suggestion['suggestion'] as String,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          suggestion['description'] as String,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF8E8E93),
-                            height: 1.4,
+                              Text(
+                                suggestion['title'] as String,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF8E8E93),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -595,24 +680,14 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
                   ),
                 ],
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
 
-                // Achievable - Monthly contribution
-                const Text(
-                  'MONTHLY CONTRIBUTION',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF8E8E93),
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
+                // Monthly contribution
                 TextField(
                   controller: _monthlyController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    hintText: '0',
+                    hintText: 'Monthly contribution (optional)',
                     prefixText: '₹ ',
                     filled: true,
                     fillColor: const Color(0xFFF2F2F7),
@@ -630,7 +705,24 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
 
                 // Save button
                 GestureDetector(
-                  onTap: () => Navigator.pop(context),
+                  onTap: () async {
+                    final name = _nameController.text.trim();
+                    if (name.isEmpty || _targetDate == null) return;
+
+                    final target = int.tryParse(_amountController.text) ?? 0;
+                    final monthly = int.tryParse(_monthlyController.text) ?? 0;
+
+                    final goal = SavingsGoal(
+                      name: name,
+                      target: target,
+                      monthly: monthly,
+                      targetDate: _targetDate!,
+                      icon: _selectedIcon,
+                    );
+
+                    await widget.onSave(goal);
+                    if (context.mounted) Navigator.pop(context);
+                  },
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -657,4 +749,3 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
     );
   }
 }
-
