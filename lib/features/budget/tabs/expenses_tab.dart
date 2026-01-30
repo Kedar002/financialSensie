@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../screens/income_screen.dart';
+import '../screens/spent_screen.dart';
 import '../screens/transactions_screen.dart';
 import '../sheets/add_expense_sheet.dart';
 import '../widgets/cycle_indicator.dart';
@@ -130,7 +131,10 @@ class ExpensesTab extends StatelessWidget {
                             const SizedBox(width: 12),
                             Expanded(
                               child: GestureDetector(
-                                onTap: () => _showSpendingBreakdown(context),
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const SpentScreen()),
+                                ),
                                 child: Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
@@ -455,172 +459,6 @@ class ExpensesTab extends StatelessWidget {
     );
   }
 
-  void _showSpendingBreakdown(BuildContext context) {
-    const income = 5000.0;
-    const needs = 1200.0;
-    const wants = 350.0;
-    const savings = 650.0;
-    const total = needs + wants + savings;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE5E5E5),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Spending Breakdown',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                      ),
-                    ),
-                    Text(
-                      '₹${total.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _SpendingCategory(
-                  name: 'Needs',
-                  amount: needs,
-                  income: income,
-                  color: const Color(0xFF007AFF),
-                ),
-                const SizedBox(height: 16),
-                _SpendingCategory(
-                  name: 'Wants',
-                  amount: wants,
-                  income: income,
-                  color: const Color(0xFFFF9500),
-                ),
-                const SizedBox(height: 16),
-                _SpendingCategory(
-                  name: 'Savings',
-                  amount: savings,
-                  income: income,
-                  color: const Color(0xFF34C759),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SpendingCategory extends StatelessWidget {
-  final String name;
-  final double amount;
-  final double income;
-  final Color color;
-
-  const _SpendingCategory({
-    required this.name,
-    required this.amount,
-    required this.income,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final percentage = (amount / income * 100).round();
-    final barWidth = amount / income;
-
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              name,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.black,
-              ),
-            ),
-            Row(
-              children: [
-                Text(
-                  '₹${amount.toStringAsFixed(0)}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Color.fromRGBO(color.r.toInt(), color.g.toInt(), color.b.toInt(), 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '$percentage%',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: color,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 6,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF2F2F7),
-            borderRadius: BorderRadius.circular(3),
-          ),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: FractionallySizedBox(
-              widthFactor: barWidth.clamp(0.0, 1.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _TransactionTile extends StatelessWidget {
