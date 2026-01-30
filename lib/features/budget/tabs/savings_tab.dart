@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../sheets/add_savings_sheet.dart';
-import '../screens/category_management_screen.dart';
 
 class SavingsTab extends StatelessWidget {
   final VoidCallback onMenuTap;
@@ -101,27 +100,6 @@ class SavingsTab extends StatelessWidget {
                                   ),
                                 ),
                               ],
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const CategoryManagementScreen(
-                                      type: 'savings',
-                                      title: 'Savings Goals',
-                                    ),
-                                  ),
-                                );
-                              },
-                              child: const Text(
-                                'Edit',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF007AFF),
-                                ),
-                              ),
                             ),
                           ],
                         ),

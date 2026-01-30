@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../sheets/add_expense_sheet.dart';
-import '../screens/category_management_screen.dart';
 
 class NeedsTab extends StatelessWidget {
   final VoidCallback onMenuTap;
@@ -86,45 +85,21 @@ class NeedsTab extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          '₹1,200 this cycle',
+                          '₹1,200',
+                          style: TextStyle(
+                            fontSize: 34,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          '20% of income',
                           style: TextStyle(
                             fontSize: 15,
                             color: Color(0xFF8E8E93),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            const Text(
-                              'Resets each pay cycle',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF8E8E93),
-                              ),
-                            ),
-                            const Spacer(),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const CategoryManagementScreen(
-                                      type: 'needs',
-                                      title: 'Needs',
-                                    ),
-                                  ),
-                                );
-                              },
-                              child: const Text(
-                                'Edit',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF007AFF),
-                                ),
-                              ),
-                            ),
-                          ],
                         ),
                       ],
                     ),
