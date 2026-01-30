@@ -1,24 +1,35 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/wants_template.dart';
+import '../../../core/repositories/wants_template_repository.dart';
 import 'wants_template_detail_sheet.dart';
 import 'wants_template_edit_sheet.dart';
 
-class WantsTemplatesSheet extends StatelessWidget {
-  const WantsTemplatesSheet({super.key});
+class WantsTemplatesSheet extends StatefulWidget {
+  final void Function(WantsTemplate template)? onTemplateImported;
 
-  static final List<Map<String, dynamic>> _templates = [
-    {
-      'name': 'Monthly Fun',
-      'items': [
-        {'name': 'Dining Out', 'amount': 2000},
-        {'name': 'Entertainment', 'amount': 1500},
-        {'name': 'Subscriptions', 'amount': 500},
-        {'name': 'Shopping', 'amount': 1000},
-      ],
-    },
-  ];
+  const WantsTemplatesSheet({super.key, this.onTemplateImported});
 
-  int _calculateTotal(List<Map<String, dynamic>> items) {
-    return items.fold(0, (sum, item) => sum + (item['amount'] as int));
+  @override
+  State<WantsTemplatesSheet> createState() => _WantsTemplatesSheetState();
+}
+
+class _WantsTemplatesSheetState extends State<WantsTemplatesSheet> {
+  final WantsTemplateRepository _repository = WantsTemplateRepository();
+  List<WantsTemplate> _templates = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTemplates();
+  }
+
+  Future<void> _loadTemplates() async {
+    final templates = await _repository.getAll();
+    setState(() {
+      _templates = templates;
+      _isLoading = false;
+    });
   }
 
   @override
@@ -52,121 +63,129 @@ class WantsTemplatesSheet extends StatelessWidget {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
-                  if (_templates.isEmpty)
-                    const Padding(
+              child: _isLoading
+                  ? const Padding(
                       padding: EdgeInsets.symmetric(vertical: 32),
-                      child: Text(
-                        'No templates yet',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: Color(0xFF8E8E93),
-                        ),
-                      ),
+                      child: CircularProgressIndicator(),
                     )
-                  else
-                    ..._templates.map((template) {
-                      final items = template['items'] as List<Map<String, dynamic>>;
-                      final total = _calculateTotal(items);
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: GestureDetector(
+                  : Column(
+                      children: [
+                        if (_templates.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 32),
+                            child: Text(
+                              'No templates yet',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: Color(0xFF8E8E93),
+                              ),
+                            ),
+                          )
+                        else
+                          ..._templates.map((template) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: Colors.transparent,
+                                    builder: (context) => WantsTemplateDetailSheet(
+                                      template: template,
+                                      onImport: widget.onTemplateImported,
+                                      onUpdated: _loadTemplates,
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF2F2F7),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              template.name,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '₹${_formatAmount(template.totalAmount)} · ${template.items.length} items',
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                color: Color(0xFF8E8E93),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const Icon(
+                                        Icons.chevron_right,
+                                        color: Color(0xFFC7C7CC),
+                                        size: 22,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        const SizedBox(height: 8),
+                        GestureDetector(
                           onTap: () {
                             Navigator.pop(context);
                             showModalBottomSheet(
                               context: context,
                               isScrollControlled: true,
                               backgroundColor: Colors.transparent,
-                              builder: (context) => WantsTemplateDetailSheet(
-                                name: template['name'],
-                                items: items,
+                              builder: (context) => WantsTemplateEditSheet(
+                                onSaved: () {
+                                  // Template created
+                                },
                               ),
                             );
                           },
                           child: Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF2F2F7),
-                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFE5E5E5)),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Row(
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        template['name'],
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        '₹${_formatAmount(total)}',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          color: Color(0xFF8E8E93),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                Icon(
+                                  Icons.add,
+                                  size: 20,
+                                  color: Color(0xFF007AFF),
                                 ),
-                                const Icon(
-                                  Icons.chevron_right,
-                                  color: Color(0xFFC7C7CC),
-                                  size: 22,
+                                SizedBox(width: 8),
+                                Text(
+                                  'Create Template',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF007AFF),
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                      );
-                    }),
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (context) => const WantsTemplateEditSheet(),
-                      );
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFE5E5E5)),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add,
-                            size: 20,
-                            color: Color(0xFF007AFF),
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Create Template',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF007AFF),
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
             const SizedBox(height: 20),
           ],
@@ -176,9 +195,9 @@ class WantsTemplatesSheet extends StatelessWidget {
   }
 
   String _formatAmount(int amount) {
-    if (amount >= 1000) {
-      return '${(amount / 1000).toStringAsFixed(amount % 1000 == 0 ? 0 : 1)}k';
-    }
-    return amount.toString();
+    return amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
   }
 }

@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/wants_template.dart';
+import '../../../core/repositories/wants_template_repository.dart';
 
 class WantsTemplateEditSheet extends StatefulWidget {
-  final String? name;
-  final List<Map<String, dynamic>>? items;
+  final WantsTemplate? template;
+  final VoidCallback? onSaved;
 
   const WantsTemplateEditSheet({
     super.key,
-    this.name,
-    this.items,
+    this.template,
+    this.onSaved,
   });
 
   @override
@@ -15,17 +17,18 @@ class WantsTemplateEditSheet extends StatefulWidget {
 }
 
 class _WantsTemplateEditSheetState extends State<WantsTemplateEditSheet> {
+  final WantsTemplateRepository _repository = WantsTemplateRepository();
   late TextEditingController _nameController;
   late List<_TemplateItem> _items;
-  bool get _isEditing => widget.name != null;
+  bool get _isEditing => widget.template != null;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.name ?? '');
-    _items = widget.items?.map((item) => _TemplateItem(
-      nameController: TextEditingController(text: item['name']),
-      amountController: TextEditingController(text: item['amount'].toString()),
+    _nameController = TextEditingController(text: widget.template?.name ?? '');
+    _items = widget.template?.items.map((item) => _TemplateItem(
+      nameController: TextEditingController(text: item.name),
+      amountController: TextEditingController(text: item.amount.toString()),
     )).toList() ?? [
       _TemplateItem(
         nameController: TextEditingController(),
@@ -60,6 +63,50 @@ class _WantsTemplateEditSheetState extends State<WantsTemplateEditSheet> {
         _items[index].amountController.dispose();
         _items.removeAt(index);
       });
+    }
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+
+    final validItems = _items
+        .where((item) => item.nameController.text.trim().isNotEmpty)
+        .toList();
+
+    if (_isEditing) {
+      // Update existing template
+      final updated = widget.template!.copyWith(name: name);
+      await _repository.update(updated);
+
+      // Replace items
+      final newItems = validItems.map((item) => WantsTemplateItem(
+        templateId: widget.template!.id!,
+        name: item.nameController.text.trim(),
+        amount: int.tryParse(item.amountController.text) ?? 0,
+      )).toList();
+      await _repository.replaceItems(widget.template!.id!, newItems);
+    } else {
+      // Create new template
+      final template = WantsTemplate(name: name);
+      final templateId = await _repository.insert(template);
+
+      // Insert items
+      final newItems = validItems.map((item) => WantsTemplateItem(
+        templateId: templateId,
+        name: item.nameController.text.trim(),
+        amount: int.tryParse(item.amountController.text) ?? 0,
+      )).toList();
+      await _repository.insertItems(templateId, newItems);
+    }
+
+    widget.onSaved?.call();
+  }
+
+  Future<void> _delete() async {
+    if (widget.template != null) {
+      await _repository.delete(widget.template!.id!);
+      widget.onSaved?.call();
     }
   }
 
@@ -216,15 +263,18 @@ class _WantsTemplateEditSheetState extends State<WantsTemplateEditSheet> {
                 ),
                 const SizedBox(height: 28),
                 GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(_isEditing ? 'Template updated' : 'Template created'),
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
+                  onTap: () async {
+                    await _save();
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(_isEditing ? 'Template updated' : 'Template created'),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
                   },
                   child: Container(
                     width: double.infinity,
@@ -248,15 +298,18 @@ class _WantsTemplateEditSheetState extends State<WantsTemplateEditSheet> {
                   const SizedBox(height: 16),
                   Center(
                     child: GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Template deleted'),
-                            behavior: SnackBarBehavior.floating,
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
+                      onTap: () async {
+                        await _delete();
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Template deleted'),
+                              behavior: SnackBarBehavior.floating,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
                       },
                       child: const Text(
                         'Delete Template',

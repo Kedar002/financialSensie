@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/wants_template.dart';
 import 'wants_template_edit_sheet.dart';
 
 class WantsTemplateDetailSheet extends StatelessWidget {
-  final String name;
-  final List<Map<String, dynamic>> items;
+  final WantsTemplate template;
+  final void Function(WantsTemplate template)? onImport;
+  final VoidCallback? onUpdated;
 
   const WantsTemplateDetailSheet({
     super.key,
-    required this.name,
-    required this.items,
+    required this.template,
+    this.onImport,
+    this.onUpdated,
   });
-
-  int get _total => items.fold(0, (sum, item) => sum + (item['amount'] as int));
 
   @override
   Widget build(BuildContext context) {
@@ -36,69 +37,81 @@ class WantsTemplateDetailSheet extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Text(
-                name,
+                template.name,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 24),
-              ...items.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
+
+              if (template.items.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    'No items in this template',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFF8E8E93),
+                    ),
+                  ),
+                )
+              else
+                ...template.items.map((item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        item.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        '₹${_formatAmount(item.amount)}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+
+              if (template.items.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Divider(height: 1, color: Color(0xFFE5E5E5)),
+                ),
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      item['name'],
-                      style: const TextStyle(
+                    const Text(
+                      'Total',
+                      style: TextStyle(
                         fontSize: 16,
-                        color: Colors.black87,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
-                      '₹${_formatAmount(item['amount'])}',
+                      '₹${_formatAmount(template.totalAmount)}',
                       style: const TextStyle(
                         fontSize: 16,
-                        color: Colors.black87,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
-              )),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Divider(height: 1, color: Color(0xFFE5E5E5)),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Total',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    '₹${_formatAmount(_total)}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+              ],
+
               const SizedBox(height: 28),
+
               GestureDetector(
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Template imported to Wants'),
-                      behavior: SnackBarBehavior.floating,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
+                  onImport?.call(template);
                 },
                 child: Container(
                   width: double.infinity,
@@ -118,7 +131,9 @@ class WantsTemplateDetailSheet extends StatelessWidget {
                   ),
                 ),
               ),
+
               const SizedBox(height: 16),
+
               GestureDetector(
                 onTap: () {
                   Navigator.pop(context);
@@ -127,8 +142,8 @@ class WantsTemplateDetailSheet extends StatelessWidget {
                     isScrollControlled: true,
                     backgroundColor: Colors.transparent,
                     builder: (context) => WantsTemplateEditSheet(
-                      name: name,
-                      items: items,
+                      template: template,
+                      onSaved: onUpdated,
                     ),
                   );
                 },
@@ -149,10 +164,9 @@ class WantsTemplateDetailSheet extends StatelessWidget {
   }
 
   String _formatAmount(int amount) {
-    final formatted = amount.toString().replaceAllMapped(
+    return amount.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (Match m) => '${m[1]},',
     );
-    return formatted;
   }
 }

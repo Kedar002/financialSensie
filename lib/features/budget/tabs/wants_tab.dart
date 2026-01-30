@@ -1,19 +1,40 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/wants_category.dart';
+import '../../../core/models/wants_template.dart';
+import '../../../core/repositories/wants_repository.dart';
 import '../sheets/wants_templates_sheet.dart';
 
-class WantsTab extends StatelessWidget {
+class WantsTab extends StatefulWidget {
   final VoidCallback onMenuTap;
 
   const WantsTab({super.key, required this.onMenuTap});
 
-  final List<Map<String, dynamic>> _categories = const [
-    {'name': 'Dining Out', 'amount': 180, 'icon': Icons.restaurant_outlined},
-    {'name': 'Entertainment', 'amount': 85, 'icon': Icons.movie_outlined},
-    {'name': 'Shopping', 'amount': 85, 'icon': Icons.shopping_bag_outlined},
-    {'name': 'Subscriptions', 'amount': 0, 'icon': Icons.subscriptions_outlined},
-    {'name': 'Personal Care', 'amount': 0, 'icon': Icons.spa_outlined},
-    {'name': 'Hobbies', 'amount': 0, 'icon': Icons.palette_outlined},
-  ];
+  @override
+  State<WantsTab> createState() => _WantsTabState();
+}
+
+class _WantsTabState extends State<WantsTab> {
+  final WantsRepository _repository = WantsRepository();
+  List<WantsCategory> _categories = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final categories = await _repository.getAll();
+    setState(() {
+      _categories = categories;
+      _isLoading = false;
+    });
+  }
+
+  int get _totalAmount {
+    return _categories.fold(0, (sum, cat) => sum + cat.amount);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +50,7 @@ class WantsTab extends StatelessWidget {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: onMenuTap,
+                    onTap: widget.onMenuTap,
                     child: Container(
                       width: 36,
                       height: 36,
@@ -64,78 +85,114 @@ class WantsTab extends StatelessWidget {
 
             // Content
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  // Title Card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       children: [
-                        Text(
-                          'Wants',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
+                        // Title Card
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Wants',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '₹${_formatAmount(_totalAmount)}',
+                                style: const TextStyle(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black,
+                                  letterSpacing: -1,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Lifestyle expenses',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: Color(0xFF8E8E93),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        SizedBox(height: 4),
-                        Text(
-                          '₹350',
-                          style: TextStyle(
-                            fontSize: 34,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                            letterSpacing: -1,
+
+                        const SizedBox(height: 16),
+
+                        // Categories Grid or Empty State
+                        if (_categories.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 48),
+                            child: Column(
+                              children: [
+                                const Icon(
+                                  Icons.folder_outlined,
+                                  size: 48,
+                                  color: Color(0xFFC7C7CC),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'No categories yet',
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF8E8E93),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                GestureDetector(
+                                  onTap: () => _showAddCategory(context),
+                                  child: const Text(
+                                    'Add your first category',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Color(0xFF007AFF),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 1.6,
+                            ),
+                            itemCount: _categories.length,
+                            itemBuilder: (context, index) {
+                              final cat = _categories[index];
+                              return GestureDetector(
+                                onTap: () => _showEditCategory(context, cat),
+                                child: _CategoryCard(
+                                  name: cat.name,
+                                  amount: cat.amount,
+                                  icon: _getIconData(cat.icon),
+                                ),
+                              );
+                            },
                           ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          '6% of income',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Color(0xFF8E8E93),
-                          ),
-                        ),
+
+                        const SizedBox(height: 32),
                       ],
                     ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Categories Grid
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: 1.6,
-                    ),
-                    itemCount: _categories.length,
-                    itemBuilder: (context, index) {
-                      final cat = _categories[index];
-                      return GestureDetector(
-                        onTap: () => _showEditCategory(context, cat['name'], cat['amount']),
-                        child: _CategoryCard(
-                          name: cat['name'],
-                          amount: cat['amount'],
-                          icon: cat['icon'],
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 32),
-                ],
-              ),
             ),
           ],
         ),
@@ -148,16 +205,41 @@ class WantsTab extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const _AddCategorySheet(),
+      builder: (context) => _AddCategorySheet(
+        onSave: (name, amount, icon) async {
+          final category = WantsCategory(
+            name: name,
+            amount: amount,
+            icon: icon,
+          );
+          await _repository.insert(category);
+          await _loadCategories();
+        },
+      ),
     );
   }
 
-  void _showEditCategory(BuildContext context, String name, int amount) {
+  void _showEditCategory(BuildContext context, WantsCategory category) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _EditCategorySheet(name: name, amount: amount),
+      builder: (context) => _EditCategorySheet(
+        category: category,
+        onSave: (name, amount, icon) async {
+          final updated = category.copyWith(
+            name: name,
+            amount: amount,
+            icon: icon,
+          );
+          await _repository.update(updated);
+          await _loadCategories();
+        },
+        onDelete: () async {
+          await _repository.delete(category.id!);
+          await _loadCategories();
+        },
+      ),
     );
   }
 
@@ -166,13 +248,95 @@ class WantsTab extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const WantsTemplatesSheet(),
+      builder: (context) => WantsTemplatesSheet(
+        onTemplateImported: (template) => _importTemplate(context, template),
+      ),
     );
+  }
+
+  Future<void> _importTemplate(BuildContext context, WantsTemplate template) async {
+    for (final item in template.items) {
+      final category = WantsCategory(
+        name: item.name,
+        amount: item.amount,
+        icon: 'category_outlined',
+      );
+      await _repository.insert(category);
+    }
+    await _loadCategories();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${template.items.length} items imported'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  String _formatAmount(int amount) {
+    return amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+  }
+
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+      case 'restaurant_outlined':
+        return Icons.restaurant_outlined;
+      case 'movie_outlined':
+        return Icons.movie_outlined;
+      case 'shopping_bag_outlined':
+        return Icons.shopping_bag_outlined;
+      case 'subscriptions_outlined':
+        return Icons.subscriptions_outlined;
+      case 'spa_outlined':
+        return Icons.spa_outlined;
+      case 'palette_outlined':
+        return Icons.palette_outlined;
+      case 'sports_esports_outlined':
+        return Icons.sports_esports_outlined;
+      case 'flight_outlined':
+        return Icons.flight_outlined;
+      default:
+        return Icons.category_outlined;
+    }
   }
 }
 
-class _AddCategorySheet extends StatelessWidget {
-  const _AddCategorySheet();
+class _AddCategorySheet extends StatefulWidget {
+  final Future<void> Function(String name, int amount, String icon) onSave;
+
+  const _AddCategorySheet({required this.onSave});
+
+  @override
+  State<_AddCategorySheet> createState() => _AddCategorySheetState();
+}
+
+class _AddCategorySheetState extends State<_AddCategorySheet> {
+  final _nameController = TextEditingController();
+  final _amountController = TextEditingController();
+  String _selectedIcon = 'category_outlined';
+
+  final List<Map<String, dynamic>> _icons = [
+    {'name': 'restaurant_outlined', 'icon': Icons.restaurant_outlined, 'label': 'Dining'},
+    {'name': 'movie_outlined', 'icon': Icons.movie_outlined, 'label': 'Movies'},
+    {'name': 'shopping_bag_outlined', 'icon': Icons.shopping_bag_outlined, 'label': 'Shopping'},
+    {'name': 'subscriptions_outlined', 'icon': Icons.subscriptions_outlined, 'label': 'Subs'},
+    {'name': 'spa_outlined', 'icon': Icons.spa_outlined, 'label': 'Personal'},
+    {'name': 'palette_outlined', 'icon': Icons.palette_outlined, 'label': 'Hobbies'},
+    {'name': 'sports_esports_outlined', 'icon': Icons.sports_esports_outlined, 'label': 'Gaming'},
+    {'name': 'flight_outlined', 'icon': Icons.flight_outlined, 'label': 'Travel'},
+  ];
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _amountController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -208,8 +372,53 @@ class _AddCategorySheet extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
+              // Icon selector
+              SizedBox(
+                height: 70,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _icons.length,
+                  separatorBuilder: (context, index) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final iconData = _icons[index];
+                    final isSelected = _selectedIcon == iconData['name'];
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedIcon = iconData['name']),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: isSelected ? Colors.black : const Color(0xFFF2F2F7),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              iconData['icon'],
+                              size: 24,
+                              color: isSelected ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            iconData['label'],
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isSelected ? Colors.black : const Color(0xFF8E8E93),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
               // Name field
               TextField(
+                controller: _nameController,
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
                   hintText: 'Category name',
@@ -229,9 +438,10 @@ class _AddCategorySheet extends StatelessWidget {
 
               // Amount field
               TextField(
+                controller: _amountController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  hintText: 'Amount (optional)',
+                  hintText: 'Budget amount',
                   prefixText: '₹ ',
                   filled: true,
                   fillColor: const Color(0xFFF2F2F7),
@@ -249,7 +459,14 @@ class _AddCategorySheet extends StatelessWidget {
 
               // Save button
               GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: () async {
+                  final name = _nameController.text.trim();
+                  if (name.isEmpty) return;
+
+                  final amount = int.tryParse(_amountController.text) ?? 0;
+                  await widget.onSave(name, amount, _selectedIcon);
+                  if (context.mounted) Navigator.pop(context);
+                },
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -276,11 +493,53 @@ class _AddCategorySheet extends StatelessWidget {
   }
 }
 
-class _EditCategorySheet extends StatelessWidget {
-  final String name;
-  final int amount;
+class _EditCategorySheet extends StatefulWidget {
+  final WantsCategory category;
+  final Future<void> Function(String name, int amount, String icon) onSave;
+  final Future<void> Function() onDelete;
 
-  const _EditCategorySheet({required this.name, required this.amount});
+  const _EditCategorySheet({
+    required this.category,
+    required this.onSave,
+    required this.onDelete,
+  });
+
+  @override
+  State<_EditCategorySheet> createState() => _EditCategorySheetState();
+}
+
+class _EditCategorySheetState extends State<_EditCategorySheet> {
+  late TextEditingController _nameController;
+  late TextEditingController _amountController;
+  late String _selectedIcon;
+
+  final List<Map<String, dynamic>> _icons = [
+    {'name': 'restaurant_outlined', 'icon': Icons.restaurant_outlined, 'label': 'Dining'},
+    {'name': 'movie_outlined', 'icon': Icons.movie_outlined, 'label': 'Movies'},
+    {'name': 'shopping_bag_outlined', 'icon': Icons.shopping_bag_outlined, 'label': 'Shopping'},
+    {'name': 'subscriptions_outlined', 'icon': Icons.subscriptions_outlined, 'label': 'Subs'},
+    {'name': 'spa_outlined', 'icon': Icons.spa_outlined, 'label': 'Personal'},
+    {'name': 'palette_outlined', 'icon': Icons.palette_outlined, 'label': 'Hobbies'},
+    {'name': 'sports_esports_outlined', 'icon': Icons.sports_esports_outlined, 'label': 'Gaming'},
+    {'name': 'flight_outlined', 'icon': Icons.flight_outlined, 'label': 'Travel'},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.category.name);
+    _amountController = TextEditingController(
+      text: widget.category.amount > 0 ? widget.category.amount.toString() : '',
+    );
+    _selectedIcon = widget.category.icon;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _amountController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -307,20 +566,85 @@ class _EditCategorySheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              Text(
-                name,
-                style: const TextStyle(
+              const Text(
+                'Edit Category',
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 24),
 
+              // Icon selector
+              SizedBox(
+                height: 70,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _icons.length,
+                  separatorBuilder: (context, index) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final iconData = _icons[index];
+                    final isSelected = _selectedIcon == iconData['name'];
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedIcon = iconData['name']),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: isSelected ? Colors.black : const Color(0xFFF2F2F7),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              iconData['icon'],
+                              size: 24,
+                              color: isSelected ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            iconData['label'],
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isSelected ? Colors.black : const Color(0xFF8E8E93),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Name field
+              TextField(
+                controller: _nameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  hintText: 'Category name',
+                  filled: true,
+                  fillColor: const Color(0xFFF2F2F7),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
               // Amount field
               TextField(
+                controller: _amountController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  hintText: 'Amount',
+                  hintText: 'Budget amount',
                   prefixText: '₹ ',
                   filled: true,
                   fillColor: const Color(0xFFF2F2F7),
@@ -338,7 +662,14 @@ class _EditCategorySheet extends StatelessWidget {
 
               // Save button
               GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: () async {
+                  final name = _nameController.text.trim();
+                  if (name.isEmpty) return;
+
+                  final amount = int.tryParse(_amountController.text) ?? 0;
+                  await widget.onSave(name, amount, _selectedIcon);
+                  if (context.mounted) Navigator.pop(context);
+                },
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -362,7 +693,10 @@ class _EditCategorySheet extends StatelessWidget {
 
               // Delete button
               GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: () async {
+                  await widget.onDelete();
+                  if (context.mounted) Navigator.pop(context);
+                },
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -435,7 +769,7 @@ class _CategoryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  amount > 0 ? '₹$amount' : 'No expenses',
+                  amount > 0 ? '₹$amount' : 'No budget',
                   style: TextStyle(
                     fontSize: 13,
                     color: amount > 0 ? Colors.black87 : const Color(0xFFC7C7CC),
