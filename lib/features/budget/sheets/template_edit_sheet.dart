@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/needs_template.dart';
+import '../../../core/repositories/needs_template_repository.dart';
 
 class TemplateEditSheet extends StatefulWidget {
-  final String? name;
-  final List<Map<String, dynamic>>? items;
+  final NeedsTemplate? template;
+  final VoidCallback? onSaved;
 
   const TemplateEditSheet({
     super.key,
-    this.name,
-    this.items,
+    this.template,
+    this.onSaved,
   });
 
   @override
@@ -15,38 +17,46 @@ class TemplateEditSheet extends StatefulWidget {
 }
 
 class _TemplateEditSheetState extends State<TemplateEditSheet> {
+  final NeedsTemplateRepository _repository = NeedsTemplateRepository();
   late TextEditingController _nameController;
-  late List<_TemplateItem> _items;
-  bool get _isEditing => widget.name != null;
+  late List<_ItemController> _items;
+  bool _isEditing = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.name ?? '');
-    _items = widget.items?.map((item) => _TemplateItem(
-      nameController: TextEditingController(text: item['name']),
-      amountController: TextEditingController(text: item['amount'].toString()),
-    )).toList() ?? [
-      _TemplateItem(
-        nameController: TextEditingController(),
-        amountController: TextEditingController(),
-      ),
-    ];
+    _isEditing = widget.template != null;
+    _nameController = TextEditingController(text: widget.template?.name ?? '');
+
+    if (widget.template != null && widget.template!.items.isNotEmpty) {
+      _items = widget.template!.items.map((item) => _ItemController(
+        id: item.id,
+        nameController: TextEditingController(text: item.name),
+        amountController: TextEditingController(text: item.amount.toString()),
+      )).toList();
+    } else {
+      _items = [
+        _ItemController(
+          nameController: TextEditingController(),
+          amountController: TextEditingController(),
+        ),
+      ];
+    }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     for (final item in _items) {
-      item.nameController.dispose();
-      item.amountController.dispose();
+      item.dispose();
     }
     super.dispose();
   }
 
   void _addItem() {
     setState(() {
-      _items.add(_TemplateItem(
+      _items.add(_ItemController(
         nameController: TextEditingController(),
         amountController: TextEditingController(),
       ));
@@ -56,10 +66,87 @@ class _TemplateEditSheetState extends State<TemplateEditSheet> {
   void _removeItem(int index) {
     if (_items.length > 1) {
       setState(() {
-        _items[index].nameController.dispose();
-        _items[index].amountController.dispose();
+        _items[index].dispose();
         _items.removeAt(index);
       });
+    }
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      if (_isEditing) {
+        // Update template
+        final updated = widget.template!.copyWith(name: name);
+        await _repository.update(updated);
+
+        // Replace all items
+        final items = _items
+            .where((item) => item.nameController.text.trim().isNotEmpty)
+            .map((item) => NeedsTemplateItem(
+                  templateId: widget.template!.id!,
+                  name: item.nameController.text.trim(),
+                  amount: int.tryParse(item.amountController.text) ?? 0,
+                ))
+            .toList();
+        await _repository.replaceItems(widget.template!.id!, items);
+      } else {
+        // Create new template
+        final template = NeedsTemplate(name: name);
+        final templateId = await _repository.insert(template);
+
+        // Add items
+        final items = _items
+            .where((item) => item.nameController.text.trim().isNotEmpty)
+            .map((item) => NeedsTemplateItem(
+                  templateId: templateId,
+                  name: item.nameController.text.trim(),
+                  amount: int.tryParse(item.amountController.text) ?? 0,
+                ))
+            .toList();
+
+        if (items.isNotEmpty) {
+          await _repository.insertItems(templateId, items);
+        }
+      }
+
+      widget.onSaved?.call();
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_isEditing ? 'Template updated' : 'Template created'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  Future<void> _delete() async {
+    if (widget.template == null) return;
+
+    await _repository.delete(widget.template!.id!);
+    widget.onSaved?.call();
+
+    if (mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Template deleted'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -102,6 +189,7 @@ class _TemplateEditSheetState extends State<TemplateEditSheet> {
                   ),
                 ),
                 const SizedBox(height: 24),
+
                 TextField(
                   controller: _nameController,
                   textCapitalization: TextCapitalization.words,
@@ -120,6 +208,7 @@ class _TemplateEditSheetState extends State<TemplateEditSheet> {
                   ),
                 ),
                 const SizedBox(height: 24),
+
                 const Text(
                   'Items',
                   style: TextStyle(
@@ -129,6 +218,7 @@ class _TemplateEditSheetState extends State<TemplateEditSheet> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
                 ...List.generate(_items.length, (index) {
                   final item = _items[index];
                   return Padding(
@@ -192,7 +282,9 @@ class _TemplateEditSheetState extends State<TemplateEditSheet> {
                     ),
                   );
                 }),
+
                 const SizedBox(height: 8),
+
                 GestureDetector(
                   onTap: _addItem,
                   child: const Row(
@@ -214,50 +306,46 @@ class _TemplateEditSheetState extends State<TemplateEditSheet> {
                     ],
                   ),
                 ),
+
                 const SizedBox(height: 28),
+
                 GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(_isEditing ? 'Template updated' : 'Template created'),
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  },
+                  onTap: _isSaving ? null : _save,
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     decoration: BoxDecoration(
-                      color: Colors.black,
+                      color: _isSaving ? Colors.grey : Colors.black,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
-                      'Save',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: _isSaving
+                        ? const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                          )
+                        : const Text(
+                            'Save',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
+
                 if (_isEditing) ...[
                   const SizedBox(height: 16),
                   Center(
                     child: GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Template deleted'),
-                            behavior: SnackBarBehavior.floating,
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
+                      onTap: _delete,
                       child: const Text(
                         'Delete Template',
                         style: TextStyle(
@@ -278,12 +366,19 @@ class _TemplateEditSheetState extends State<TemplateEditSheet> {
   }
 }
 
-class _TemplateItem {
+class _ItemController {
+  final int? id;
   final TextEditingController nameController;
   final TextEditingController amountController;
 
-  _TemplateItem({
+  _ItemController({
+    this.id,
     required this.nameController,
     required this.amountController,
   });
+
+  void dispose() {
+    nameController.dispose();
+    amountController.dispose();
+  }
 }
