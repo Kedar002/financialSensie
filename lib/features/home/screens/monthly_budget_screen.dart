@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/formatters.dart';
 import '../models/expense.dart';
+import 'budget_history_screen.dart';
 
 /// Monthly budget screen.
 /// Shows the 50-30-20 breakdown.
@@ -62,9 +63,27 @@ class MonthlyBudgetScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppTheme.spacing12),
-          Text(
-            'Monthly Budget',
-            style: Theme.of(context).textTheme.headlineMedium,
+          Expanded(
+            child: Text(
+              'Monthly Budget',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const BudgetHistoryScreen(),
+                ),
+              );
+            },
+            child: Text(
+              'History',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.gray500,
+                  ),
+            ),
           ),
         ],
       ),

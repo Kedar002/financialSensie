@@ -131,6 +131,8 @@ Shows the 50-30-20 budget breakdown with spending progress for each category.
 **Navigation:** Tap "This month" section on Home screen (indicated by chevron)
 
 **Key Elements:**
+- **Header** - Back button + "Monthly Budget" title + "History" link
+  - History link: Subtle gray text, navigates to Budget History screen
 - **Overview** - Total budget, spent, and remaining
 - **The 50-30-20 Rule** - Three budget buckets
   - Needs (50%) - Essentials like food, transport, bills
@@ -147,9 +149,102 @@ Shows the 50-30-20 budget breakdown with spending progress for each category.
 - No pie charts (too decorative)
 - Stacked bar for actual spending (simple, clear)
 - Gray tones only (black, gray400, gray200)
+- History access is secondary (subtle text link, not prominent button)
 
 **Files:**
 - `lib/features/home/screens/monthly_budget_screen.dart`
+
+---
+
+### 1.4 Budget History Screen
+
+**Status:** In Progress (UI only)
+
+**Description:**
+Shows historical budget reports for all past months since the user started using the app (up to 2 years). Clean list grouped by year with key metrics at a glance.
+
+**Navigation:** Tap "History" link in Monthly Budget screen header
+
+**Key Elements:**
+- **Header** - Back button + "Budget History" title
+- **Year Sections** - Months grouped by year (most recent year first)
+  - Year label as section header (titleLarge)
+  - Each year contains its months in reverse chronological order
+- **Month Cards** - One card per month showing:
+  - Month name (left side)
+  - Budget amount (subtitle, gray)
+  - Net result (right side): +/- amount with "Saved" or "Over" label
+  - Chevron indicator for future detail navigation
+- **Empty State** - Shown when no history exists
+  - "No history yet" title
+  - "Your past budgets will appear here" subtitle
+
+**Data Model:**
+```dart
+class MonthlyBudgetSummary {
+  final int year;
+  final int month;
+  final String monthName;
+  final double totalBudget;
+  final double totalSpent;
+  final double remaining;
+}
+```
+
+**Design Principles Applied:**
+- One clear purpose: View past months
+- Minimal information per card (month, budget, result)
+- Grouped by year for easy scanning
+- Positive results in black, negative in gray (not red - stays monochrome)
+- Chevron indicates tappable (future detail view)
+- Empty state is helpful, not decorative
+- No charts or graphs - just clean data
+
+**Future Implementation (not yet done):**
+- Load actual data from database
+- Filter by year
+
+**Files:**
+- `lib/features/home/screens/budget_history_screen.dart`
+
+---
+
+### 1.5 Budget History Detail Screen
+
+**Status:** In Progress (UI only)
+
+**Description:**
+Detail view for a specific historical month. Shows the 50-30-20 breakdown and result for that month. Read-only view of past data.
+
+**Navigation:** Tap any month card in Budget History screen
+
+**Key Elements:**
+- **Header** - Back button + "Month Year" title (e.g., "December 2025")
+- **Overview** - Total budget, spent, and saved/over amounts
+  - Budget amount in displayMedium
+  - Two stats: Spent and Saved/Over
+- **Budget Breakdown** - 50-30-20 buckets with progress
+  - Needs (50%) - Budget, spent, progress bar, left/over
+  - Wants (30%) - Budget, spent, progress bar, left/over
+  - Savings (20%) - Budget, spent, progress bar, left/over
+- **Result Card** - Centered summary
+  - "You saved" or "You overspent" label
+  - Large +/- amount in displayMedium
+  - "this month" subtitle
+
+**Design Principles Applied:**
+- Mirrors Monthly Budget screen layout for consistency
+- Read-only (no actions, just viewing)
+- Result card provides clear month summary
+- Progress bars show category performance
+- Monochrome color scheme maintained
+
+**Future Implementation (not yet done):**
+- Load actual category-level data from database
+- Show actual expense breakdown per category
+
+**Files:**
+- `lib/features/home/screens/budget_history_detail_screen.dart`
 
 ---
 
@@ -672,6 +767,8 @@ Explains the app philosophy and budget calculation logic in simple, human terms.
 | Home Screen | Daily Spending View | `lib/features/home/screens/home_screen.dart` | Completed |
 | Add Expense Screen | Expense Logging | `lib/features/home/screens/add_expense_screen.dart` | Completed |
 | Monthly Budget Screen | 50-30-20 Breakdown | `lib/features/home/screens/monthly_budget_screen.dart` | Completed |
+| Budget History Screen | Past Month Reports | `lib/features/home/screens/budget_history_screen.dart` | In Progress |
+| Budget History Detail Screen | Single Month Detail | `lib/features/home/screens/budget_history_detail_screen.dart` | In Progress |
 | All Expenses Screen | Expense History | `lib/features/home/screens/all_expenses_screen.dart` | Completed |
 | Safety Screen | Safety Tab (Emergency Fund) | `lib/features/emergency_fund/screens/emergency_fund_screen.dart` | Completed |
 | Add Fund Screen | Safety Tab | `lib/features/emergency_fund/screens/add_fund_screen.dart` | Completed |
