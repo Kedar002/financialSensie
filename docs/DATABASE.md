@@ -429,3 +429,53 @@ CREATE TABLE expenses (
   created_at TEXT NOT NULL
 );
 ```
+
+---
+
+## Income Tables
+
+### income_categories
+
+Stores income sources with recurring amounts.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier |
+| name | TEXT | NOT NULL | Income source name (e.g., "Salary", "Freelance") |
+| amount | INTEGER | DEFAULT 0 | Expected amount in rupees |
+| frequency | TEXT | DEFAULT 'monthly' | Frequency: 'monthly', 'biweekly', or 'variable' |
+| created_at | TEXT | NOT NULL | ISO 8601 timestamp |
+
+**Example:**
+```sql
+INSERT INTO income_categories (name, amount, frequency, created_at)
+VALUES ('Salary', 50000, 'monthly', '2025-01-31T10:00:00.000Z');
+```
+
+---
+
+## Income Repository Methods
+
+### IncomeRepository
+
+| Method | Description |
+|--------|-------------|
+| `getAll()` | Returns all income sources ordered by created_at |
+| `getById(int id)` | Returns single income source by ID |
+| `insert(IncomeCategory)` | Creates new income source, returns ID |
+| `update(IncomeCategory)` | Updates existing income source |
+| `delete(int id)` | Deletes income source by ID |
+
+---
+
+### Version 8 (Income Categories)
+
+```sql
+CREATE TABLE income_categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  amount INTEGER DEFAULT 0,
+  frequency TEXT DEFAULT 'monthly',
+  created_at TEXT NOT NULL
+);
+```

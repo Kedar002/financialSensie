@@ -98,10 +98,8 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     } else if (expense.type == 'savings') {
       final goal = _savingsGoals.where((g) => g.id == expense.categoryId).firstOrNull;
       if (goal != null) {
-        _selectedCategory = {'id': goal.id, 'name': goal.name};
+        _selectedCategory = {'id': goal.id, 'name': goal.name, 'saved': goal.saved};
       }
-    } else if (expense.type == 'income') {
-      _selectedCategory = {'id': null, 'name': expense.categoryName};
     }
   }
 
@@ -118,14 +116,6 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
           'name': g.name,
           'saved': g.saved,
         }).toList();
-      case 'income':
-        return [
-          {'id': null, 'name': 'Salary'},
-          {'id': null, 'name': 'Freelance'},
-          {'id': null, 'name': 'Investment'},
-          {'id': null, 'name': 'Gift'},
-          {'id': null, 'name': 'Other'},
-        ];
       default:
         return [];
     }
@@ -248,6 +238,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
           }
         }
       }
+
       await _expenseRepository.update(expense);
     } else {
       await _expenseRepository.insert(expense);
@@ -263,6 +254,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
           await _savingsRepository.update(goal.copyWith(saved: newSaved));
         }
       }
+
     }
 
     widget.onSaved?.call();
@@ -438,8 +430,6 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                 _buildTypeButton('Wants', 'wants'),
                 const SizedBox(width: 8),
                 _buildTypeButton('Savings', 'savings'),
-                const SizedBox(width: 8),
-                _buildTypeButton('Income', 'income'),
               ],
             ),
           ),

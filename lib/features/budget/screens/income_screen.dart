@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/income_category.dart';
+import '../../../core/repositories/income_repository.dart';
 
 class IncomeScreen extends StatefulWidget {
   const IncomeScreen({super.key});
@@ -8,12 +10,32 @@ class IncomeScreen extends StatefulWidget {
 }
 
 class _IncomeScreenState extends State<IncomeScreen> {
-  List<Map<String, dynamic>> _incomeSources = [
-    {'name': 'Salary', 'amount': 5000, 'frequency': 'monthly'},
-    {'name': 'Freelance', 'amount': 850, 'frequency': 'variable'},
-  ];
+  final IncomeRepository _repository = IncomeRepository();
+  List<IncomeCategory> _incomeSources = [];
+  bool _isLoading = true;
 
-  int get _totalIncome => _incomeSources.fold(0, (sum, item) => sum + (item['amount'] as int));
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final sources = await _repository.getAll();
+    setState(() {
+      _incomeSources = sources;
+      _isLoading = false;
+    });
+  }
+
+  int get _totalIncome => _incomeSources.fold(0, (sum, item) => sum + item.amount);
+
+  String _formatAmount(int amount) {
+    return amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,96 +75,116 @@ class _IncomeScreenState extends State<IncomeScreen> {
             ),
 
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // Total Card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView(
+                      padding: const EdgeInsets.all(16),
                       children: [
-                        const Text(
-                          'Total This Cycle',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Color(0xFF8E8E93),
+                        // Total Card
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Total This Cycle',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: Color(0xFF8E8E93),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '₹${_formatAmount(_totalIncome)}',
+                                style: const TextStyle(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF34C759),
+                                  letterSpacing: -1,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '₹$_totalIncome',
-                          style: const TextStyle(
-                            fontSize: 34,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF34C759),
-                            letterSpacing: -1,
+
+                        const SizedBox(height: 24),
+
+                        // Section header
+                        const Padding(
+                          padding: EdgeInsets.only(left: 4, bottom: 8),
+                          child: Text(
+                            'Sources',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF8E8E93),
+                            ),
                           ),
+                        ),
+
+                        // Income sources list
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: _incomeSources.isEmpty
+                              ? Padding(
+                                  padding: const EdgeInsets.all(32),
+                                  child: Column(
+                                    children: [
+                                      const Icon(
+                                        Icons.account_balance_wallet_outlined,
+                                        size: 48,
+                                        color: Color(0xFFC7C7CC),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      const Text(
+                                        'No income sources',
+                                        style: TextStyle(
+                                          fontSize: 17,
+                                          color: Color(0xFF8E8E93),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      GestureDetector(
+                                        onTap: () => _showAddEditSheet(context),
+                                        child: const Text(
+                                          'Add your first source',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            color: Color(0xFF007AFF),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : Column(
+                                  children: _incomeSources.asMap().entries.map((entry) {
+                                    final index = entry.key;
+                                    final source = entry.value;
+                                    final isLast = index == _incomeSources.length - 1;
+
+                                    return _IncomeSourceItem(
+                                      name: source.name,
+                                      amount: source.amount,
+                                      frequency: source.frequency,
+                                      isLast: isLast,
+                                      onTap: () => _showAddEditSheet(
+                                        context,
+                                        category: source,
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
                         ),
                       ],
                     ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Section header
-                  const Padding(
-                    padding: EdgeInsets.only(left: 4, bottom: 8),
-                    child: Text(
-                      'Sources',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF8E8E93),
-                      ),
-                    ),
-                  ),
-
-                  // Income sources list
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: _incomeSources.isEmpty
-                        ? const Padding(
-                            padding: EdgeInsets.all(20),
-                            child: Center(
-                              child: Text(
-                                'No income sources',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: Color(0xFFC7C7CC),
-                                ),
-                              ),
-                            ),
-                          )
-                        : Column(
-                            children: _incomeSources.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final source = entry.value;
-                              final isLast = index == _incomeSources.length - 1;
-
-                              return _IncomeSourceItem(
-                                name: source['name'],
-                                amount: source['amount'],
-                                frequency: source['frequency'],
-                                isLast: isLast,
-                                onTap: () => _showAddEditSheet(
-                                  context,
-                                  index: index,
-                                  source: source,
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -150,13 +192,13 @@ class _IncomeScreenState extends State<IncomeScreen> {
     );
   }
 
-  void _showAddEditSheet(BuildContext context, {int? index, Map<String, dynamic>? source}) {
-    final isEditing = source != null;
-    final nameController = TextEditingController(text: source?['name'] ?? '');
+  void _showAddEditSheet(BuildContext context, {IncomeCategory? category}) {
+    final isEditing = category != null;
+    final nameController = TextEditingController(text: category?.name ?? '');
     final amountController = TextEditingController(
-      text: source != null ? source['amount'].toString() : '',
+      text: category != null ? category.amount.toString() : '',
     );
-    String frequency = source?['frequency'] ?? 'monthly';
+    String frequency = category?.frequency ?? 'monthly';
 
     showModalBottomSheet(
       context: context,
@@ -265,23 +307,24 @@ class _IncomeScreenState extends State<IncomeScreen> {
 
                   // Save button
                   GestureDetector(
-                    onTap: () {
+                    onTap: () async {
                       if (nameController.text.isEmpty || amountController.text.isEmpty) return;
 
-                      final newSource = {
-                        'name': nameController.text,
-                        'amount': int.tryParse(amountController.text) ?? 0,
-                        'frequency': frequency,
-                      };
+                      final newCategory = IncomeCategory(
+                        id: category?.id,
+                        name: nameController.text.trim(),
+                        amount: int.tryParse(amountController.text) ?? 0,
+                        frequency: frequency,
+                      );
 
-                      setState(() {
-                        if (isEditing && index != null) {
-                          _incomeSources[index] = newSource;
-                        } else {
-                          _incomeSources.add(newSource);
-                        }
-                      });
-                      Navigator.pop(context);
+                      if (isEditing) {
+                        await _repository.update(newCategory);
+                      } else {
+                        await _repository.insert(newCategory);
+                      }
+
+                      await _loadData();
+                      if (context.mounted) Navigator.pop(context);
                     },
                     child: Container(
                       width: double.infinity,
@@ -308,7 +351,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
                     GestureDetector(
                       onTap: () {
                         Navigator.pop(context);
-                        _showDeleteConfirmation(context, index!);
+                        _showDeleteConfirmation(context, category);
                       },
                       child: Container(
                         width: double.infinity,
@@ -334,7 +377,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, int index) {
+  void _showDeleteConfirmation(BuildContext context, IncomeCategory category) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -361,9 +404,10 @@ class _IncomeScreenState extends State<IncomeScreen> {
                     ),
                   ),
                   GestureDetector(
-                    onTap: () {
-                      setState(() => _incomeSources.removeAt(index));
-                      Navigator.pop(context);
+                    onTap: () async {
+                      await _repository.delete(category.id!);
+                      await _loadData();
+                      if (context.mounted) Navigator.pop(context);
                     },
                     child: Container(
                       width: double.infinity,
@@ -440,6 +484,13 @@ class _IncomeSourceItem extends StatelessWidget {
     }
   }
 
+  String _formatAmount(int amount) {
+    return amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -480,7 +531,7 @@ class _IncomeSourceItem extends StatelessWidget {
               ),
             ),
             Text(
-              '₹$amount',
+              '₹${_formatAmount(amount)}',
               style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,

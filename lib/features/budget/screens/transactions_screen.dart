@@ -540,7 +540,7 @@ class _TransactionTile extends StatelessWidget {
       case 'needs': return 'Needs';
       case 'wants': return 'Wants';
       case 'savings': return 'Savings';
-      case 'income': return 'Income';
+      case 'income': return 'Balance';
       default: return expense.type;
     }
   }
@@ -619,7 +619,7 @@ class _ExpenseDetailSheet extends StatelessWidget {
       case 'needs': return 'Needs';
       case 'wants': return 'Wants';
       case 'savings': return 'Savings';
-      case 'income': return 'Income';
+      case 'income': return 'Balance';
       default: return expense.type;
     }
   }

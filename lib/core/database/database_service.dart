@@ -21,7 +21,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -108,6 +108,16 @@ class DatabaseService {
         category_name TEXT NOT NULL,
         note TEXT,
         date TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE income_categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        amount INTEGER DEFAULT 0,
+        frequency TEXT DEFAULT 'monthly',
         created_at TEXT NOT NULL
       )
     ''');
@@ -222,6 +232,18 @@ class DatabaseService {
           category_name TEXT NOT NULL,
           note TEXT,
           date TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      ''');
+    }
+
+    if (oldVersion < 8) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS income_categories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          amount INTEGER DEFAULT 0,
+          frequency TEXT DEFAULT 'monthly',
           created_at TEXT NOT NULL
         )
       ''');

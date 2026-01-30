@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/expense.dart';
 import '../../../core/repositories/expense_repository.dart';
+import '../../../core/repositories/income_repository.dart';
 import '../screens/cycle_complete_screen.dart';
 import '../screens/income_screen.dart';
 import '../screens/spent_screen.dart';
@@ -19,9 +20,10 @@ class ExpensesTab extends StatefulWidget {
 
 class _ExpensesTabState extends State<ExpensesTab> {
   final ExpenseRepository _repository = ExpenseRepository();
+  final IncomeRepository _incomeRepository = IncomeRepository();
   List<Expense> _recentExpenses = [];
   bool _isLoading = true;
-  int _totalIncome = 0;
+  int _totalBalance = 0;
   int _totalSpent = 0;
 
   // Cycle dates (can be made configurable later)
@@ -49,18 +51,21 @@ class _ExpensesTabState extends State<ExpensesTab> {
 
   Future<void> _loadData() async {
     final expenses = await _repository.getRecent(limit: 5);
-    final income = await _repository.getTotalIncome(start: _cycleStart, end: _cycleEnd);
     final spent = await _repository.getTotalSpent(start: _cycleStart, end: _cycleEnd);
+
+    // Balance = Sum of all income category amounts
+    final incomeCategories = await _incomeRepository.getAll();
+    final balance = incomeCategories.fold<int>(0, (sum, cat) => sum + (cat.amount * 100)); // Convert rupees to paise
 
     setState(() {
       _recentExpenses = expenses;
-      _totalIncome = income;
+      _totalBalance = balance;
       _totalSpent = spent;
       _isLoading = false;
     });
   }
 
-  int get _remaining => _totalIncome - _totalSpent;
+  int get _remaining => _totalBalance - _totalSpent;
 
   double get _cycleProgress {
     final now = DateTime.now();
@@ -201,7 +206,7 @@ class _ExpensesTabState extends State<ExpensesTab> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             const Text(
-                                              'Income',
+                                              'Balance',
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 color: Color(0xFF8E8E93),
@@ -209,7 +214,7 @@ class _ExpensesTabState extends State<ExpensesTab> {
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              '₹${_formatAmount(_totalIncome)}',
+                                              '₹${_formatAmount(_totalBalance)}',
                                               style: const TextStyle(
                                                 fontSize: 22,
                                                 fontWeight: FontWeight.w600,
@@ -434,7 +439,7 @@ class _ExpensesTabState extends State<ExpensesTab> {
           cycleName: _getCycleName(),
           cycleStart: _cycleStart,
           cycleEnd: _cycleEnd,
-          totalIncome: _totalIncome,
+          totalIncome: _totalBalance,
           totalSpent: _totalSpent,
           needsSpent: spentByType['needs'] ?? 0,
           wantsSpent: spentByType['wants'] ?? 0,
@@ -683,7 +688,7 @@ class _TransactionTile extends StatelessWidget {
       case 'needs': return 'Needs';
       case 'wants': return 'Wants';
       case 'savings': return 'Savings';
-      case 'income': return 'Income';
+      case 'income': return 'Balance';
       default: return expense.type;
     }
   }
@@ -764,7 +769,7 @@ class _ExpenseDetailSheet extends StatelessWidget {
       case 'needs': return 'Needs';
       case 'wants': return 'Wants';
       case 'savings': return 'Savings';
-      case 'income': return 'Income';
+      case 'income': return 'Balance';
       default: return expense.type;
     }
   }
