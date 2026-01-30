@@ -391,6 +391,7 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
   final _monthlyController = TextEditingController();
   DateTime? _targetDate;
   String _selectedIcon = 'savings_outlined';
+  String? _monthlyError;
 
   final List<Map<String, dynamic>> _icons = [
     {'name': 'shield_outlined', 'icon': Icons.shield_outlined, 'label': 'Emergency'},
@@ -404,7 +405,67 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _amountController.addListener(_onFieldsChanged);
+    _monthlyController.addListener(_onFieldsChanged);
+  }
+
+  void _onFieldsChanged() {
+    setState(() {
+      _validateMonthly();
+    });
+  }
+
+  void _validateMonthly() {
+    final monthly = int.tryParse(_monthlyController.text) ?? 0;
+    final requiredMonthly = _requiredMonthly;
+
+    if (monthly > 0 && requiredMonthly != null && monthly < requiredMonthly) {
+      _monthlyError = 'Minimum ₹$requiredMonthly/month needed to reach goal by target date';
+    } else {
+      _monthlyError = null;
+    }
+  }
+
+  // Calculate required monthly when amount and date are set
+  int? get _requiredMonthly {
+    final amount = int.tryParse(_amountController.text) ?? 0;
+    if (amount <= 0 || _targetDate == null) return null;
+
+    final now = DateTime.now();
+    final months = _monthsBetween(now, _targetDate!);
+    if (months <= 0) return amount;
+
+    return (amount / months).ceil();
+  }
+
+  // Calculate earliest completion date when amount and monthly are set
+  DateTime? get _earliestDate {
+    final amount = int.tryParse(_amountController.text) ?? 0;
+    final monthly = int.tryParse(_monthlyController.text) ?? 0;
+    if (amount <= 0 || monthly <= 0) return null;
+
+    final monthsNeeded = (amount / monthly).ceil();
+    final now = DateTime.now();
+    return DateTime(now.year, now.month + monthsNeeded, now.day);
+  }
+
+  int _monthsBetween(DateTime from, DateTime to) {
+    return (to.year - from.year) * 12 + (to.month - from.month);
+  }
+
+  String _formatAmount(int amount) {
+    return amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+  }
+
+  @override
   void dispose() {
+    _amountController.removeListener(_onFieldsChanged);
+    _monthlyController.removeListener(_onFieldsChanged);
     _nameController.dispose();
     _amountController.dispose();
     _monthlyController.dispose();
@@ -413,11 +474,19 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
 
   Future<void> _selectDate() async {
     final now = DateTime.now();
+    final earliest = _earliestDate;
+    final minDate = earliest != null && earliest.isAfter(now) ? earliest : now;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _targetDate ?? now.add(const Duration(days: 365)),
-      firstDate: now,
+      initialDate: _targetDate != null && _targetDate!.isAfter(minDate)
+          ? _targetDate!
+          : minDate.add(const Duration(days: 1)),
+      firstDate: minDate,
       lastDate: DateTime(now.year + 50),
+      helpText: earliest != null
+          ? 'Earliest: ${_formatDateShort(earliest)}'
+          : 'SELECT TARGET DATE',
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -433,8 +502,17 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
       },
     );
     if (picked != null) {
-      setState(() => _targetDate = picked);
+      setState(() {
+        _targetDate = picked;
+        _validateMonthly();
+      });
     }
+  }
+
+  String _formatDateShort(DateTime date) {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
   String get _formattedDate {
@@ -618,11 +696,29 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          _formattedDate,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: _targetDate != null ? Colors.black : const Color(0xFF8E8E93),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _formattedDate,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: _targetDate != null ? Colors.black : const Color(0xFF8E8E93),
+                                ),
+                              ),
+                              if (_earliestDate != null && _targetDate == null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    'Earliest: ${_formatDateShort(_earliestDate!)}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF007AFF),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                         const Icon(
@@ -687,10 +783,14 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
                   controller: _monthlyController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    hintText: 'Monthly contribution (optional)',
+                    hintText: _requiredMonthly != null
+                        ? 'Min ₹${_formatAmount(_requiredMonthly!)}/month required'
+                        : 'Monthly contribution',
                     prefixText: '₹ ',
                     filled: true,
-                    fillColor: const Color(0xFFF2F2F7),
+                    fillColor: _monthlyError != null
+                        ? const Color(0xFFFFE5E5)
+                        : const Color(0xFFF2F2F7),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -701,6 +801,17 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
                     ),
                   ),
                 ),
+                if (_monthlyError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 4),
+                    child: Text(
+                      _monthlyError!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFFF3B30),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 24),
 
                 // Save button
@@ -708,14 +819,18 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
                   onTap: () async {
                     final name = _nameController.text.trim();
                     if (name.isEmpty || _targetDate == null) return;
+                    if (_monthlyError != null) return;
 
                     final target = int.tryParse(_amountController.text) ?? 0;
                     final monthly = int.tryParse(_monthlyController.text) ?? 0;
 
+                    // If monthly is not set but required monthly is calculated, use that
+                    final finalMonthly = monthly > 0 ? monthly : (_requiredMonthly ?? 0);
+
                     final goal = SavingsGoal(
                       name: name,
                       target: target,
-                      monthly: monthly,
+                      monthly: finalMonthly,
                       targetDate: _targetDate!,
                       icon: _selectedIcon,
                     );
@@ -727,7 +842,7 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     decoration: BoxDecoration(
-                      color: Colors.black,
+                      color: _monthlyError != null ? const Color(0xFFC7C7CC) : Colors.black,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
