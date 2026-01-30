@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../sheets/templates_sheet.dart';
 
 class NeedsTab extends StatelessWidget {
   final VoidCallback onMenuTap;
@@ -40,6 +41,15 @@ class NeedsTab extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
+                  GestureDetector(
+                    onTap: () => _showTemplates(context),
+                    child: const Icon(
+                      Icons.file_copy_outlined,
+                      size: 24,
+                      color: Color(0xFF007AFF),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
                   GestureDetector(
                     onTap: () => _showAddCategory(context),
                     child: const Icon(
@@ -148,6 +158,15 @@ class NeedsTab extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _EditCategorySheet(name: name, amount: amount),
+    );
+  }
+
+  void _showTemplates(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const TemplatesSheet(),
     );
   }
 }
