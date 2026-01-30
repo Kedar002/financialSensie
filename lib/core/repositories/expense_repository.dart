@@ -1,8 +1,10 @@
 import '../database/database_service.dart';
 import '../models/expense.dart';
+import 'savings_repository.dart';
 
 class ExpenseRepository {
   final DatabaseService _db = DatabaseService();
+  final SavingsRepository _savingsRepository = SavingsRepository();
 
   Future<List<Expense>> getAll() async {
     final db = await _db.database;
@@ -67,12 +69,28 @@ class ExpenseRepository {
   }
 
   Future<int> delete(int id) async {
+    // Get the expense first to check if it's a savings expense
+    final expense = await getById(id);
+
     final db = await _db.database;
-    return await db.delete(
+    final result = await db.delete(
       'expenses',
       where: 'id = ?',
       whereArgs: [id],
     );
+
+    // Refund to savings goal if this was a savings expense
+    // Note: expense.amount is in paise, goal.saved is in rupees
+    if (result > 0 && expense != null && expense.type == 'savings' && expense.categoryId != null) {
+      final goal = await _savingsRepository.getById(expense.categoryId!);
+      if (goal != null) {
+        final refundInRupees = (expense.amount / 100).round();
+        final newSaved = goal.saved + refundInRupees;
+        await _savingsRepository.update(goal.copyWith(saved: newSaved));
+      }
+    }
+
+    return result;
   }
 
   Future<int> getTotalIncome({DateTime? start, DateTime? end}) async {

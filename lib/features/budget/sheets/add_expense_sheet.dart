@@ -112,7 +112,12 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       case 'wants':
         return _wantsCategories.map((c) => {'id': c.id, 'name': c.name}).toList();
       case 'savings':
-        return _savingsGoals.map((g) => {'id': g.id, 'name': g.name}).toList();
+        // Include saved amount for validation
+        return _savingsGoals.map((g) => {
+          'id': g.id,
+          'name': g.name,
+          'saved': g.saved,
+        }).toList();
       case 'income':
         return [
           {'id': null, 'name': 'Salary'},
@@ -124,6 +129,35 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       default:
         return [];
     }
+  }
+
+  // Get the available saved amount for selected savings goal
+  int? get _selectedSavingsAvailable {
+    if (_selectedType != 'savings' || _selectedCategory == null) return null;
+    return _selectedCategory!['saved'] as int?;
+  }
+
+  // Validate if the amount exceeds available savings
+  // Note: savings goals store amounts in rupees, expenses store in paise
+  String? get _savingsValidationError {
+    if (_selectedType != 'savings') return null;
+    if (_selectedCategory == null) return null;
+    if (_amount.isEmpty) return null;
+
+    final amountInRupees = double.tryParse(_amount) ?? 0;
+    final availableSavedRupees = _selectedCategory!['saved'] as int? ?? 0;
+
+    if (amountInRupees > availableSavedRupees) {
+      return 'Only ₹${_formatAmount(availableSavedRupees)} available in this goal';
+    }
+    return null;
+  }
+
+  String _formatAmount(int amount) {
+    return amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
   }
 
   @override
@@ -164,10 +198,23 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
   Future<void> _save() async {
     if (_amount.isEmpty) return;
 
+    // Validate savings spending
+    if (_savingsValidationError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_savingsValidationError!),
+          backgroundColor: const Color(0xFFFF3B30),
+        ),
+      );
+      return;
+    }
+
     final amount = (double.tryParse(_amount) ?? 0) * 100;
+    final amountInt = amount.round();
+
     final expense = Expense(
       id: widget.expense?.id,
-      amount: amount.round(),
+      amount: amountInt,
       type: _selectedType,
       categoryId: _selectedCategory?['id'] as int?,
       categoryName: _selectedCategory?['name'] as String? ?? 'Uncategorized',
@@ -176,9 +223,46 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     );
 
     if (_isEditing) {
+      // For editing savings expenses, we need to handle the difference
+      // Note: expense amounts are in paise, savings goals are in rupees
+      if (_selectedType == 'savings' && widget.expense?.type == 'savings') {
+        final oldAmountRupees = (widget.expense!.amount / 100).round();
+        final newAmountRupees = (amountInt / 100).round();
+        final differenceRupees = newAmountRupees - oldAmountRupees;
+        if (differenceRupees != 0 && _selectedCategory?['id'] != null) {
+          final goalId = _selectedCategory!['id'] as int;
+          final goal = await _savingsRepository.getById(goalId);
+          if (goal != null) {
+            // Deduct the difference (positive = more spent, negative = refund)
+            final newSaved = goal.saved - differenceRupees;
+            if (newSaved < 0) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Not enough saved amount for this change'),
+                  backgroundColor: Color(0xFFFF3B30),
+                ),
+              );
+              return;
+            }
+            await _savingsRepository.update(goal.copyWith(saved: newSaved));
+          }
+        }
+      }
       await _expenseRepository.update(expense);
     } else {
       await _expenseRepository.insert(expense);
+
+      // Deduct from savings goal if spending from savings
+      // Note: expense amounts are in paise, savings goals are in rupees
+      if (_selectedType == 'savings' && _selectedCategory?['id'] != null) {
+        final goalId = _selectedCategory!['id'] as int;
+        final goal = await _savingsRepository.getById(goalId);
+        if (goal != null) {
+          final deductRupees = (amountInt / 100).round();
+          final newSaved = goal.saved - deductRupees;
+          await _savingsRepository.update(goal.copyWith(saved: newSaved));
+        }
+      }
     }
 
     widget.onSaved?.call();
@@ -268,13 +352,13 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: _amount.isNotEmpty ? _save : null,
+                  onTap: _amount.isNotEmpty && _savingsValidationError == null ? _save : null,
                   child: Text(
                     'Save',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
-                      color: _amount.isNotEmpty
+                      color: _amount.isNotEmpty && _savingsValidationError == null
                           ? const Color(0xFF007AFF)
                           : const Color(0xFFD1D1D6),
                     ),
@@ -304,15 +388,43 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
               ),
               Text(
                 _displayAmount,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 64,
                   fontWeight: FontWeight.w300,
-                  color: Colors.black,
+                  color: _savingsValidationError != null
+                      ? const Color(0xFFFF3B30)
+                      : Colors.black,
                   letterSpacing: -2,
                 ),
               ),
             ],
           ),
+
+          // Savings validation error
+          if (_savingsValidationError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _savingsValidationError!,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFFFF3B30),
+                ),
+              ),
+            ),
+
+          // Available balance hint for savings
+          if (_selectedType == 'savings' && _selectedCategory != null && _savingsValidationError == null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                '₹${_formatAmount(_selectedSavingsAvailable ?? 0)} available',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF34C759),
+                ),
+              ),
+            ),
 
           const SizedBox(height: 24),
 
@@ -514,42 +626,68 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(height: 16),
-              const Text(
-                'Category',
-                style: TextStyle(
+              Text(
+                _selectedType == 'savings' ? 'Withdraw From' : 'Category',
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF8E8E93),
                 ),
               ),
               const SizedBox(height: 8),
-              ...categories.map((cat) => Column(
+              ...categories.map((cat) {
+                final savedAmount = cat['saved'] as int?;
+                final hasNoFunds = _selectedType == 'savings' && (savedAmount == null || savedAmount == 0);
+
+                return Column(
                     children: [
                       GestureDetector(
-                        onTap: () {
+                        onTap: hasNoFunds ? null : () {
                           setState(() => _selectedCategory = cat);
                           Navigator.pop(context);
                         },
                         behavior: HitTestBehavior.opaque,
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          child: Text(
-                            cat['name'] as String,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 20,
-                              color: _selectedCategory?['name'] == cat['name']
-                                  ? const Color(0xFF007AFF)
-                                  : Colors.black,
-                            ),
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                          child: Column(
+                            children: [
+                              Text(
+                                cat['name'] as String,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  color: hasNoFunds
+                                      ? const Color(0xFFC7C7CC)
+                                      : _selectedCategory?['name'] == cat['name']
+                                          ? const Color(0xFF007AFF)
+                                          : Colors.black,
+                                ),
+                              ),
+                              if (_selectedType == 'savings' && savedAmount != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    hasNoFunds
+                                        ? 'No funds available'
+                                        : '₹${_formatAmount(savedAmount)} available',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: hasNoFunds
+                                          ? const Color(0xFFC7C7CC)
+                                          : const Color(0xFF34C759),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ),
                       if (cat != categories.last)
                         const Divider(height: 1, color: Color(0xFFF2F2F2)),
                     ],
-                  )),
+                  );
+              }),
               const SizedBox(height: 8),
             ],
           ),
