@@ -3,6 +3,7 @@ import 'tabs/expenses_tab.dart';
 import 'tabs/needs_tab.dart';
 import 'tabs/wants_tab.dart';
 import 'tabs/savings_tab.dart';
+import 'tabs/statistics_tab.dart';
 
 class BudgetScreen extends StatefulWidget {
   final VoidCallback onMenuTap;
@@ -21,6 +22,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
     NeedsTab(onMenuTap: widget.onMenuTap),
     WantsTab(onMenuTap: widget.onMenuTap),
     SavingsTab(onMenuTap: widget.onMenuTap),
+    StatisticsTab(onMenuTap: widget.onMenuTap),
   ];
 
   @override
@@ -82,6 +84,17 @@ class _BudgetScreenState extends State<BudgetScreen> {
               child: Icon(Icons.savings, size: 22),
             ),
             label: 'Savings',
+          ),
+          BottomNavigationBarItem(
+            icon: Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.bar_chart_outlined, size: 22),
+            ),
+            activeIcon: Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.bar_chart, size: 22),
+            ),
+            label: 'Statistics',
           ),
         ],
       ),
