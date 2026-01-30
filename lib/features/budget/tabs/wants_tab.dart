@@ -20,6 +20,7 @@ class _WantsTabState extends State<WantsTab> {
   List<WantsCategory> _categories = [];
   Map<int, int> _spentByCategory = {};
   bool _isLoading = true;
+  bool _isSummaryExpanded = false;
 
   @override
   void initState() {
@@ -48,8 +49,22 @@ class _WantsTabState extends State<WantsTab> {
     await _loadData();
   }
 
-  int get _totalAmount {
+  int get _totalBudget {
     return _categories.fold(0, (sum, cat) => sum + cat.amount);
+  }
+
+  int get _totalSpent {
+    // _spentByCategory values are in paise, convert to rupees
+    return (_spentByCategory.values.fold(0, (sum, val) => sum + val) / 100).round();
+  }
+
+  int get _remaining {
+    return _totalBudget - _totalSpent;
+  }
+
+  double get _spentProgress {
+    if (_totalBudget <= 0) return 0.0;
+    return (_totalSpent / _totalBudget).clamp(0.0, 1.0);
   }
 
   @override
@@ -106,43 +121,140 @@ class _WantsTabState extends State<WantsTab> {
                   : ListView(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       children: [
-                        // Title Card
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Wants',
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.black,
+                        // Summary Card (Expandable)
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isSummaryExpanded = !_isSummaryExpanded;
+                            });
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOutCubic,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Header row with title and expand indicator
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Wants',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF8E8E93),
+                                      ),
+                                    ),
+                                    AnimatedRotation(
+                                      turns: _isSummaryExpanded ? 0.5 : 0,
+                                      duration: const Duration(milliseconds: 250),
+                                      child: const Icon(
+                                        Icons.keyboard_arrow_down,
+                                        size: 20,
+                                        color: Color(0xFFC7C7CC),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '₹${_formatAmount(_totalAmount)}',
-                                style: const TextStyle(
-                                  fontSize: 34,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.black,
-                                  letterSpacing: -1,
+                                const SizedBox(height: 8),
+
+                                // Main amount (Remaining when collapsed, Budget when expanded)
+                                Text(
+                                  '₹${_formatAmount(_isSummaryExpanded ? _totalBudget : _remaining)}',
+                                  style: TextStyle(
+                                    fontSize: 34,
+                                    fontWeight: FontWeight.w700,
+                                    color: _remaining < 0 && !_isSummaryExpanded
+                                        ? const Color(0xFFFF3B30)
+                                        : Colors.black,
+                                    letterSpacing: -1,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Lifestyle expenses',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: Color(0xFF8E8E93),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _isSummaryExpanded
+                                      ? 'Total budget'
+                                      : 'remaining of ₹${_formatAmount(_totalBudget)}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF8E8E93),
+                                  ),
                                 ),
-                              ),
-                            ],
+
+                                // Expanded content
+                                AnimatedCrossFade(
+                                  firstChild: const SizedBox.shrink(),
+                                  secondChild: Column(
+                                    children: [
+                                      const SizedBox(height: 24),
+
+                                      // Budget breakdown
+                                      _SummaryRow(
+                                        label: 'Spent',
+                                        amount: _totalSpent,
+                                        color: Colors.black,
+                                        formatAmount: _formatAmount,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      _SummaryRow(
+                                        label: 'Remaining',
+                                        amount: _remaining,
+                                        color: _remaining >= 0
+                                            ? const Color(0xFF34C759)
+                                            : const Color(0xFFFF3B30),
+                                        formatAmount: _formatAmount,
+                                        isBold: true,
+                                      ),
+
+                                      const SizedBox(height: 20),
+
+                                      // Progress bar
+                                      Container(
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF2F2F7),
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                        child: FractionallySizedBox(
+                                          alignment: Alignment.centerLeft,
+                                          widthFactor: _spentProgress,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: _remaining >= 0
+                                                  ? const Color(0xFFFF9500)
+                                                  : const Color(0xFFFF3B30),
+                                              borderRadius: BorderRadius.circular(3),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+
+                                      // Progress text
+                                      Text(
+                                        _totalBudget > 0
+                                            ? '${(_spentProgress * 100).round()}% of budget used'
+                                            : 'No budget set',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF8E8E93),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  crossFadeState: _isSummaryExpanded
+                                      ? CrossFadeState.showSecond
+                                      : CrossFadeState.showFirst,
+                                  duration: const Duration(milliseconds: 250),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
 
@@ -761,6 +873,47 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final int amount;
+  final Color color;
+  final String Function(int) formatAmount;
+  final bool isBold;
+
+  const _SummaryRow({
+    required this.label,
+    required this.amount,
+    required this.color,
+    required this.formatAmount,
+    this.isBold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: isBold ? FontWeight.w600 : FontWeight.w400,
+            color: const Color(0xFF8E8E93),
+          ),
+        ),
+        Text(
+          '₹${formatAmount(amount.abs())}${amount < 0 ? ' over' : ''}',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: isBold ? FontWeight.w600 : FontWeight.w500,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 }

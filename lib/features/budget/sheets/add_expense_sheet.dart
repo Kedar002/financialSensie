@@ -202,6 +202,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     final amount = (double.tryParse(_amount) ?? 0) * 100;
     final amountInt = amount.round();
 
+    // Normalize date to just the date part (midnight) for consistent sorting
+    final normalizedDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+
     final expense = Expense(
       id: widget.expense?.id,
       amount: amountInt,
@@ -209,7 +212,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       categoryId: _selectedCategory?['id'] as int?,
       categoryName: _selectedCategory?['name'] as String? ?? 'Uncategorized',
       note: _noteController.text.isEmpty ? null : _noteController.text,
-      date: _selectedDate,
+      date: normalizedDate,
     );
 
     if (_isEditing) {

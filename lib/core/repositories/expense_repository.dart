@@ -36,7 +36,7 @@ class ExpenseRepository {
     final db = await _db.database;
     final maps = await db.query(
       'expenses',
-      orderBy: 'date DESC, created_at DESC',
+      orderBy: 'created_at DESC',
       limit: limit,
     );
     return maps.map((map) => Expense.fromMap(map)).toList();
