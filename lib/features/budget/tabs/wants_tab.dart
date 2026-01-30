@@ -138,9 +138,9 @@ class WantsTab extends StatelessWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 1.1,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 1.6,
                     ),
                     itemCount: _categories.length,
                     itemBuilder: (context, index) {
@@ -178,43 +178,50 @@ class _CategoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: const Color(0xFFF2F2F7),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               icon,
-              size: 22,
-              color: Colors.black,
+              size: 20,
+              color: Colors.black87,
             ),
           ),
-          const Spacer(),
-          Text(
-            name,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            amount > 0 ? '₹$amount' : 'No expenses',
-            style: TextStyle(
-              fontSize: 13,
-              color: amount > 0 ? Colors.black : const Color(0xFFC7C7CC),
-              fontWeight: amount > 0 ? FontWeight.w600 : FontWeight.w400,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  amount > 0 ? '₹$amount' : 'No expenses',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: amount > 0 ? Colors.black87 : const Color(0xFFC7C7CC),
+                    fontWeight: amount > 0 ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

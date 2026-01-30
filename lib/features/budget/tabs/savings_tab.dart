@@ -138,9 +138,9 @@ class SavingsTab extends StatelessWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 0.95,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 1.4,
                     ),
                     itemCount: _goals.length,
                     itemBuilder: (context, index) {
@@ -183,61 +183,62 @@ class _SavingsCard extends StatelessWidget {
     final hasActivity = total > 0;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: hasActivity ? const Color(0xFFE8F5E9) : const Color(0xFFF2F2F7),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               icon,
-              size: 22,
-              color: hasActivity ? const Color(0xFF34C759) : Colors.black,
+              size: 20,
+              color: hasActivity ? const Color(0xFF34C759) : Colors.black87,
             ),
           ),
-          const Spacer(),
-          Text(
-            name,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: Colors.black,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                if (hasActivity)
+                  Text(
+                    '₹$total',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF34C759),
+                    ),
+                  )
+                else
+                  const Text(
+                    'No savings yet',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFFC7C7CC),
+                    ),
+                  ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          if (hasActivity) ...[
-            Text(
-              '₹$total',
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF34C759),
-              ),
-            ),
-            Text(
-              '+₹$thisMonth this month',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF8E8E93),
-              ),
-            ),
-          ] else
-            const Text(
-              'No savings yet',
-              style: TextStyle(
-                fontSize: 13,
-                color: Color(0xFFC7C7CC),
-              ),
-            ),
         ],
       ),
     );
