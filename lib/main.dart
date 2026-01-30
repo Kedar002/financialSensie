@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'core/database/database.dart';
 import 'core/theme/app_theme.dart';
 import 'features/onboarding/screens/welcome_screen.dart';
 
@@ -14,6 +15,9 @@ void main() async {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+
+  // Initialize database
+  await DatabaseService().database;
 
   runApp(const FinanceSenseiApp());
 }

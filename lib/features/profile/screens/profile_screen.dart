@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/database/database.dart';
 import '../../../core/models/cycle_settings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/formatters.dart';
@@ -16,15 +17,57 @@ import 'knowledge_screen.dart';
 /// Five settings. One link. Nothing more.
 /// Steve Jobs would approve.
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final VoidCallback? onDataReset;
+
+  const ProfileScreen({super.key, this.onDataReset});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // In-memory settings (will connect to database later)
+  final SettingsRepository _settingsRepo = SettingsRepository();
+
+  // Loaded from database
+  int _income = 0;
+  int _fixedExpenses = 0;
+  int _variableBudget = 0;
+  int _savings = 0;
   CycleSettings _cycleSettings = CycleSettings.defaultSettings;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final income = await _settingsRepo.getMonthlyIncome();
+    final fixedExpenses = await _settingsRepo.getTotalFixedExpenses();
+    final wantsPercent = await _settingsRepo.getWantsPercent();
+    final savingsPercent = await _settingsRepo.getSavingsPercent();
+    final cycleType = await _settingsRepo.getCycleType();
+    final cycleStartDay = await _settingsRepo.getCycleStartDay();
+
+    // Calculate budgets from percentages
+    final afterFixed = income - fixedExpenses;
+    final variableBudget = (afterFixed * wantsPercent / 100).round();
+    final savings = (afterFixed * savingsPercent / 100).round();
+
+    if (mounted) {
+      setState(() {
+        _income = income;
+        _fixedExpenses = fixedExpenses;
+        _variableBudget = variableBudget;
+        _savings = savings;
+        _cycleSettings = cycleType == 'custom'
+            ? CycleSettings.customDay(cycleStartDay)
+            : CycleSettings.calendarMonth();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,11 +86,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: AppTheme.spacing24),
             _buildFinancialPlanCard(context),
             const SizedBox(height: AppTheme.spacing32),
-            _buildSetupSection(context),
+            _isLoading ? _buildLoadingSection() : _buildSetupSection(context),
             const SizedBox(height: AppTheme.spacing48),
             _buildLearnSection(context),
+            const SizedBox(height: AppTheme.spacing48),
+            _buildDangerZone(context),
             const SizedBox(height: AppTheme.spacing64),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingSection() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(AppTheme.spacing24),
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: AppTheme.black,
         ),
       ),
     );
@@ -102,40 +159,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildSetupSection(BuildContext context) {
-    // Placeholder values - will connect to database
-    const income = 50000.0;
-    const fixedExpenses = 18000.0;
-    const variableBudget = 25000.0;
-    const savings = 7000.0;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSettingRow(
           context,
           label: 'Income',
-          value: Formatters.currency(income),
+          value: Formatters.currency(AmountConverter.toRupees(_income)),
           onTap: () => _editIncome(context),
         ),
         _buildDivider(),
         _buildSettingRow(
           context,
           label: 'Fixed Expenses',
-          value: Formatters.currency(fixedExpenses),
+          value: Formatters.currency(AmountConverter.toRupees(_fixedExpenses)),
           onTap: () => _editExpenses(context),
         ),
         _buildDivider(),
         _buildSettingRow(
           context,
           label: 'Variable Budget',
-          value: Formatters.currency(variableBudget),
+          value: Formatters.currency(AmountConverter.toRupees(_variableBudget)),
           onTap: () => _editVariableBudget(context),
         ),
         _buildDivider(),
         _buildSettingRow(
           context,
           label: 'Savings',
-          value: Formatters.currency(savings),
+          value: Formatters.currency(AmountConverter.toRupees(_savings)),
           onTap: () => _editSavings(context),
         ),
         _buildDivider(),
@@ -278,6 +329,164 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildDangerZone(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Danger Zone',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppTheme.gray500,
+              ),
+        ),
+        const SizedBox(height: AppTheme.spacing16),
+        GestureDetector(
+          onTap: () => _confirmResetData(context),
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            padding: const EdgeInsets.all(AppTheme.spacing16),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppTheme.gray300),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.delete_outline,
+                  color: AppTheme.gray600,
+                  size: 24,
+                ),
+                const SizedBox(width: AppTheme.spacing12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Reset All Data',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                      const SizedBox(height: AppTheme.spacing4),
+                      Text(
+                        'Delete all expenses, goals, and settings',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.gray500,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirmResetData(BuildContext context) async {
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: AppTheme.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusMedium * 2),
+        ),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(AppTheme.spacing24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Reset All Data?',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppTheme.spacing12),
+            Text(
+              'This will permanently delete all your expenses, goals, emergency fund, debts, and reset all settings to default. This action cannot be undone.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.gray600,
+                  ),
+            ),
+            const SizedBox(height: AppTheme.spacing24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: AppTheme.spacing12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.black,
+                    ),
+                    child: const Text('Reset'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppTheme.spacing16),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _resetAllData();
+    }
+  }
+
+  Future<void> _resetAllData() async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(
+          color: AppTheme.white,
+        ),
+      ),
+    );
+
+    try {
+      // Delete and recreate database
+      await DatabaseService().deleteDatabase();
+      await DatabaseService().database;
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading
+
+        // Notify parent to reset state
+        widget.onDataReset?.call();
+
+        // Reload settings
+        await _loadSettings();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('All data has been reset'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to reset data: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   void _openLearn(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -286,36 +495,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _editIncome(BuildContext context) {
-    Navigator.of(context).push(
+  Future<void> _editIncome(BuildContext context) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const IncomeSetupScreen(isEditing: true),
       ),
     );
+    _loadSettings(); // Reload after edit
   }
 
-  void _editExpenses(BuildContext context) {
-    Navigator.of(context).push(
+  Future<void> _editExpenses(BuildContext context) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const ExpensesSetupScreen(isEditing: true),
       ),
     );
+    _loadSettings();
   }
 
-  void _editVariableBudget(BuildContext context) {
-    Navigator.of(context).push(
+  Future<void> _editVariableBudget(BuildContext context) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const VariableBudgetSetupScreen(isEditing: true),
       ),
     );
+    _loadSettings();
   }
 
-  void _editSavings(BuildContext context) {
-    Navigator.of(context).push(
+  Future<void> _editSavings(BuildContext context) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const SavingsSetupScreen(isEditing: true),
       ),
     );
+    _loadSettings();
   }
 
   Future<void> _editCycle(BuildContext context) async {
@@ -326,6 +539,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (newSettings != null) {
+      // Save to database
+      await _settingsRepo.setCycleType(
+        newSettings.type == CycleType.calendarMonth ? 'calendar' : 'custom',
+      );
+      await _settingsRepo.setCycleStartDay(newSettings.customStartDay);
+
       setState(() {
         _cycleSettings = newSettings;
       });

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import 'savings_setup_screen.dart';
 
@@ -19,6 +20,31 @@ class VariableBudgetSetupScreen extends StatefulWidget {
 
 class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
   final _controller = TextEditingController();
+  final _settingsRepo = SettingsRepository();
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingValue();
+  }
+
+  Future<void> _loadExistingValue() async {
+    final income = await _settingsRepo.getMonthlyIncome();
+    final fixedExpenses = await _settingsRepo.getTotalFixedExpenses();
+    final wantsPercent = await _settingsRepo.getWantsPercent();
+
+    // Calculate variable budget from percentage
+    final afterFixed = income - fixedExpenses;
+    if (afterFixed > 0 && wantsPercent > 0) {
+      final variableBudget = (afterFixed * wantsPercent / 100).round();
+      _controller.text = AmountConverter.toRupees(variableBudget).toInt().toString();
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -40,7 +66,9 @@ class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
               title: const Text('Edit Budget'),
             )
           : null,
-      body: SafeArea(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.black))
+          : SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppTheme.spacing24),
           child: Column(
@@ -92,7 +120,25 @@ class _VariableBudgetSetupScreenState extends State<VariableBudgetSetupScreen> {
     );
   }
 
-  void _continue() {
+  Future<void> _continue() async {
+    // Calculate and save wants percentage
+    final income = await _settingsRepo.getMonthlyIncome();
+    final fixedExpenses = await _settingsRepo.getTotalFixedExpenses();
+    final afterFixed = income - fixedExpenses;
+
+    final enteredAmount = double.tryParse(_controller.text) ?? 0;
+    final enteredAmountPaise = AmountConverter.toPaise(enteredAmount);
+
+    // Calculate wants percent from entered amount
+    int wantsPercent = 30; // default
+    if (afterFixed > 0 && enteredAmountPaise > 0) {
+      wantsPercent = (enteredAmountPaise / afterFixed * 100).round().clamp(0, 100);
+    }
+
+    await _settingsRepo.setWantsPercent(wantsPercent);
+
+    if (!mounted) return;
+
     if (widget.isEditing) {
       Navigator.of(context).pop();
     } else {

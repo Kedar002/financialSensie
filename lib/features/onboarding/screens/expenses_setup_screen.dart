@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import 'variable_budget_setup_screen.dart';
 
@@ -20,6 +21,34 @@ class _ExpensesSetupScreenState extends State<ExpensesSetupScreen> {
   final _rentController = TextEditingController();
   final _utilitiesController = TextEditingController();
   final _otherController = TextEditingController();
+  final _settingsRepo = SettingsRepository();
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingValues();
+  }
+
+  Future<void> _loadExistingValues() async {
+    final rent = await _settingsRepo.getFixedExpenseRent();
+    final utilities = await _settingsRepo.getFixedExpenseUtilities();
+    final other = await _settingsRepo.getFixedExpenseOther();
+
+    if (rent > 0) {
+      _rentController.text = AmountConverter.toRupees(rent).toInt().toString();
+    }
+    if (utilities > 0) {
+      _utilitiesController.text = AmountConverter.toRupees(utilities).toInt().toString();
+    }
+    if (other > 0) {
+      _otherController.text = AmountConverter.toRupees(other).toInt().toString();
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -43,7 +72,9 @@ class _ExpensesSetupScreenState extends State<ExpensesSetupScreen> {
               title: const Text('Edit Expenses'),
             )
           : null,
-      body: SafeArea(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.black))
+          : SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppTheme.spacing24),
           child: Column(
@@ -103,7 +134,18 @@ class _ExpensesSetupScreenState extends State<ExpensesSetupScreen> {
     );
   }
 
-  void _continue() {
+  Future<void> _continue() async {
+    // Save to database
+    final rent = double.tryParse(_rentController.text) ?? 0;
+    final utilities = double.tryParse(_utilitiesController.text) ?? 0;
+    final other = double.tryParse(_otherController.text) ?? 0;
+
+    await _settingsRepo.setFixedExpenseRent(AmountConverter.toPaise(rent));
+    await _settingsRepo.setFixedExpenseUtilities(AmountConverter.toPaise(utilities));
+    await _settingsRepo.setFixedExpenseOther(AmountConverter.toPaise(other));
+
+    if (!mounted) return;
+
     if (widget.isEditing) {
       Navigator.of(context).pop();
     } else {

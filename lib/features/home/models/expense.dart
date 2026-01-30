@@ -229,4 +229,112 @@ class Expense {
       createdAt: createdAt,
     );
   }
+
+  /// Convert to database map.
+  /// Note: amount is stored as paise (int) in DB.
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'amount': (amount * 100).round(), // Convert to paise
+      'category': category.name,
+      'subcategory': _subcategoryToDbValue(),
+      'goal_id': savingsDestination?.goalId,
+      'is_fund_contribution':
+          savingsDestination?.isEmergencyFund == true ? 1 : 0,
+      'date': date.toIso8601String().split('T')[0],
+      'note': note,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  /// Create from database map.
+  /// Note: amount is stored as paise (int) in DB.
+  factory Expense.fromMap(Map<String, dynamic> map) {
+    final category = ExpenseCategory.values.byName(map['category'] as String);
+    final subcategoryStr = map['subcategory'] as String;
+
+    ExpenseSubcategory? subcategory;
+    SavingsDestination? savingsDestination;
+
+    if (category == ExpenseCategory.savings) {
+      if (map['is_fund_contribution'] == 1) {
+        savingsDestination = SavingsDestination.emergencyFund();
+      } else if (map['goal_id'] != null) {
+        savingsDestination = SavingsDestination.goal(
+          goalId: map['goal_id'] as String,
+          goalName: map['goal_name'] as String? ?? 'Goal',
+        );
+      }
+    } else {
+      subcategory = _dbValueToSubcategory(subcategoryStr);
+    }
+
+    return Expense(
+      id: map['id'] as String,
+      amount: (map['amount'] as int) / 100.0, // Convert from paise
+      category: category,
+      subcategory: subcategory,
+      savingsDestination: savingsDestination,
+      note: map['note'] as String?,
+      date: DateTime.parse(map['date'] as String),
+      createdAt: DateTime.parse(map['created_at'] as String),
+    );
+  }
+
+  /// Convert subcategory to database value.
+  String _subcategoryToDbValue() {
+    if (category == ExpenseCategory.savings) {
+      return savingsDestination?.isEmergencyFund == true
+          ? 'emergency_fund'
+          : 'goal';
+    }
+    switch (subcategory) {
+      case ExpenseSubcategory.rentEmi:
+        return 'rent_emi';
+      case ExpenseSubcategory.utilitiesBills:
+        return 'utilities';
+      case ExpenseSubcategory.otherFixed:
+        return 'other_fixed';
+      case ExpenseSubcategory.foodDining:
+        return 'food';
+      case ExpenseSubcategory.transport:
+        return 'transport';
+      case ExpenseSubcategory.healthWellness:
+        return 'health';
+      case ExpenseSubcategory.shopping:
+        return 'shopping';
+      case ExpenseSubcategory.entertainment:
+        return 'entertainment';
+      case ExpenseSubcategory.otherVariable:
+        return 'other';
+      default:
+        return 'other';
+    }
+  }
+
+  /// Convert database value to subcategory.
+  static ExpenseSubcategory _dbValueToSubcategory(String value) {
+    switch (value) {
+      case 'rent_emi':
+        return ExpenseSubcategory.rentEmi;
+      case 'utilities':
+        return ExpenseSubcategory.utilitiesBills;
+      case 'other_fixed':
+        return ExpenseSubcategory.otherFixed;
+      case 'food':
+        return ExpenseSubcategory.foodDining;
+      case 'transport':
+        return ExpenseSubcategory.transport;
+      case 'health':
+        return ExpenseSubcategory.healthWellness;
+      case 'shopping':
+        return ExpenseSubcategory.shopping;
+      case 'entertainment':
+        return ExpenseSubcategory.entertainment;
+      case 'other':
+        return ExpenseSubcategory.otherVariable;
+      default:
+        return ExpenseSubcategory.otherVariable;
+    }
+  }
 }

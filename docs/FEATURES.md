@@ -881,6 +881,79 @@ lib/features/learn/
 
 ---
 
+## Database Layer
+
+**Status:** Completed
+
+**Description:**
+Production-ready SQLite database using sqflite package. Offline-first with all data stored locally. Amounts stored as integers (paise) to avoid floating-point precision issues.
+
+### Database Architecture
+
+```
+lib/core/database/
+├── database.dart              # Export file for all database components
+├── database_service.dart      # Main database wrapper & schema
+├── amount_converter.dart      # Rupees ↔ Paise conversion
+└── repositories/
+    ├── settings_repository.dart        # app_settings (key-value)
+    ├── expense_repository.dart         # expenses
+    ├── goal_repository.dart            # goals + goal_contributions
+    ├── emergency_fund_repository.dart  # emergency_fund + fund_contributions
+    ├── debt_repository.dart            # debts + debt_payments
+    └── snapshot_repository.dart        # monthly_snapshots
+```
+
+### Tables Summary
+
+| Table | Purpose | Records |
+|-------|---------|---------|
+| `app_settings` | User preferences (income, cycle, etc.) | ~12 key-value pairs |
+| `expenses` | All transactions | Grows daily |
+| `goals` | Savings goals | 5-20 typical |
+| `goal_contributions` | Goal transaction history | Grows with savings |
+| `emergency_fund` | Single safety fund | 1 row |
+| `fund_contributions` | Emergency fund history | Grows with savings |
+| `debts` | Debt tracking | 0-10 typical |
+| `debt_payments` | Debt payment history | Grows with payments |
+| `monthly_snapshots` | Pre-computed monthly summaries | 24 (2 years rolling) |
+
+### Key Design Decisions
+
+1. **Amounts in Paise**: All monetary values stored as INTEGER (paise, not rupees) to avoid floating-point errors
+2. **UUID Primary Keys**: Using TEXT UUIDs instead of auto-increment integers
+3. **Soft Deletes**: `deleted_at` field for recoverable deletion
+4. **Audit Trail**: `created_at`, `updated_at` timestamps on all tables
+5. **Triggers**: Automatic updates for goal/fund amounts on contribution insert
+
+### Usage Pattern
+
+```dart
+// Import the database layer
+import 'package:financesensei/core/database/database.dart';
+
+// Use repositories for data access
+final settingsRepo = SettingsRepository();
+final income = await settingsRepo.getMonthlyIncome();
+
+final expenseRepo = ExpenseRepository();
+final expenses = await expenseRepo.getForCurrentCycle(cycleSettings);
+
+final goalRepo = GoalRepository();
+await goalRepo.addContribution(goalId: 'xxx', amount: 5000.0);
+```
+
+### Files
+
+- `lib/core/database/database.dart` - Main export
+- `lib/core/database/database_service.dart` - DB initialization & schema
+- `lib/core/database/amount_converter.dart` - Rupees ↔ Paise
+- `lib/core/database/repositories/*.dart` - Data access layer
+
+See `docs/DATABASE.md` for complete schema documentation.
+
+---
+
 ## Shared Widgets
 
 | Widget | Purpose | File Path |

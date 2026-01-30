@@ -1,417 +1,344 @@
-# FinanceSensei - Database Schema Design
+# FinanceSensei - Database Schema (Production-Ready)
 
-> **Version**: 1.0.0
+> **Version**: 2.1.0
 > **Last Updated**: January 2026
 > **Database**: SQLite (via sqflite package)
-> **Status**: Production-Ready Schema
+> **Status**: Production-Ready, All Critical Issues Resolved
+
+---
+
+## Design Philosophy
+
+> "Perfection is achieved not when there is nothing more to add, but when there is nothing left to take away." - Antoine de Saint-Exupéry
+
+This schema is designed to be:
+- **Minimal** - Only tables the app actually uses
+- **Practical** - Matches current app code, not hypothetical features
+- **Scalable** - Easy to extend when needed
+- **Offline-First** - All data local, no network dependencies
 
 ---
 
 ## Table of Contents
 
-1. [Design Principles](#1-design-principles)
-2. [Entity Relationship Diagram](#2-entity-relationship-diagram)
-3. [Core Tables](#3-core-tables)
-4. [Transaction Tables](#4-transaction-tables)
-5. [Settings Tables](#5-settings-tables)
-6. [Financial Plan Tables](#6-financial-plan-tables)
-7. [Analytics & History Tables](#7-analytics--history-tables)
-8. [Future-Ready Tables](#8-future-ready-tables)
-9. [Indexes](#9-indexes)
-10. [Migrations Strategy](#10-migrations-strategy)
-11. [Data Validation Rules](#11-data-validation-rules)
-12. [Query Patterns](#12-query-patterns)
-13. [Backup & Recovery](#13-backup--recovery)
-14. [Budget History Feature](#14-budget-history-feature)
-15. [Features Without Database Storage](#15-features-without-database-storage)
+1. [Quick Start](#1-quick-start)
+2. [Core Conventions](#2-core-conventions)
+3. [Schema Overview](#3-schema-overview)
+4. [Table Definitions](#4-table-definitions)
+5. [Indexes](#5-indexes)
+6. [Triggers](#6-triggers)
+7. [Queries by Screen](#7-queries-by-screen)
+8. [Migration Strategy](#8-migration-strategy)
+9. [Dart Models](#9-dart-models)
 
 ---
 
-## 1. Design Principles
+## 1. Quick Start
 
-### 1.1 Core Principles
+### 1.1 Tables Summary
 
-| Principle | Implementation |
-|-----------|----------------|
-| **Offline-First** | All data stored locally in SQLite |
-| **No Data Loss** | Soft deletes with `deleted_at` timestamps |
-| **Auditability** | `created_at`, `updated_at` on all tables |
-| **Scalability** | UUID primary keys, normalized structure |
-| **Flexibility** | JSON columns for extensible metadata |
-| **Performance** | Strategic indexes on query patterns |
-| **Integrity** | Foreign keys with proper cascades |
+| Table | Purpose | Records |
+|-------|---------|---------|
+| `app_settings` | User preferences (income, cycle, etc.) | ~15 key-value pairs |
+| `expenses` | All transactions | Grows daily |
+| `goals` | Savings goals | 5-20 typical |
+| `goal_contributions` | Goal transaction history | Grows with savings |
+| `emergency_fund` | Single safety fund | 1 row |
+| `fund_contributions` | Emergency fund history | Grows with savings |
+| `debts` | Debt tracking | 0-10 typical |
+| `debt_payments` | Debt payment history | Grows with payments |
+| `monthly_snapshots` | Pre-computed monthly summaries | 24 (2 years rolling) |
 
-### 1.2 Naming Conventions
+### 1.2 Initial Setup SQL
+
+```sql
+-- Run once on first app launch
+PRAGMA foreign_keys = ON;
+PRAGMA journal_mode = WAL;
+
+-- Create all tables
+-- (See Section 4 for full definitions)
+```
+
+---
+
+## 2. Core Conventions
+
+### 2.1 Naming
 
 ```
 Tables:       snake_case, plural (expenses, goals)
 Columns:      snake_case (created_at, target_amount)
-Primary Keys: id (UUID string)
-Foreign Keys: {table_singular}_id (goal_id, user_id)
-Booleans:     is_{name} or has_{name} (is_active, has_reminder)
-Timestamps:   {action}_at (created_at, deleted_at)
-Amounts:      Store as INTEGER (paise/cents), display as decimal
+Primary Keys: id (TEXT, UUID format)
+Foreign Keys: {table}_id (goal_id, debt_id)
+Booleans:     is_{name} (is_completed, is_active)
+Timestamps:   {action}_at (created_at, completed_at)
 ```
 
-### 1.3 Amount Storage Strategy
+### 2.2 Amount Storage
 
+**CRITICAL: All amounts stored as INTEGER (paise/cents)**
+
+```dart
+// Why: Avoids floating-point precision errors
+// ₹1,234.56 → stored as 123456 (paise)
+
+// Dart conversion helpers
+int toPaise(double amount) => (amount * 100).round();
+double toRupees(int paise) => paise / 100.0;
 ```
-CRITICAL: Store all amounts as INTEGER (smallest currency unit)
 
-₹1,234.56 → stored as 123456 (paise)
-₹50,000   → stored as 5000000 (paise)
+### 2.3 Timestamps
 
-Why:
-- Avoids floating-point precision errors
-- SQLite doesn't have DECIMAL type
-- Simple integer math for calculations
-- Convert to display: amount / 100
+All timestamps stored as ISO 8601 TEXT:
+```
+'2026-01-30T14:30:00.000Z'
+```
+
+### 2.4 IDs
+
+UUIDs as TEXT (not auto-increment integers):
+```dart
+String generateId() => const Uuid().v4();
+// Example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 ```
 
 ---
 
-## 2. Entity Relationship Diagram
+## 3. Schema Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           FINANCESENSEI DATABASE                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    FINANCESENSEI DATABASE                    │
+│                     (Single User, Offline)                   │
+└─────────────────────────────────────────────────────────────┘
 
-┌──────────────┐       ┌──────────────┐       ┌──────────────┐
-│    users     │       │   accounts   │       │  categories  │
-│──────────────│       │──────────────│       │──────────────│
-│ id (PK)      │──┐    │ id (PK)      │       │ id (PK)      │
-│ name         │  │    │ user_id (FK) │←──┐   │ name         │
-│ email        │  │    │ name         │   │   │ type         │
-│ created_at   │  │    │ type         │   │   │ parent_id    │
-└──────────────┘  │    │ balance      │   │   │ icon         │
-                  │    └──────────────┘   │   │ color        │
-                  │                       │   └──────────────┘
-                  │    ┌──────────────────┘          │
-                  │    │                             │
-                  ▼    ▼                             ▼
-            ┌─────────────────┐              ┌──────────────┐
-            │    expenses     │              │   budgets    │
-            │─────────────────│              │──────────────│
-            │ id (PK)         │              │ id (PK)      │
-            │ user_id (FK)    │              │ user_id (FK) │
-            │ account_id (FK) │              │ category_id  │
-            │ category_id(FK) │              │ amount       │
-            │ amount          │              │ period_type  │
-            │ date            │              └──────────────┘
-            │ type            │
-            └─────────────────┘
-                    │
-        ┌───────────┴───────────┐
-        ▼                       ▼
-┌──────────────┐       ┌──────────────────┐
-│    goals     │       │  emergency_fund  │
-│──────────────│       │──────────────────│
-│ id (PK)      │       │ id (PK)          │
-│ user_id (FK) │       │ user_id (FK)     │
-│ name         │       │ current_amount   │
-│ target       │       │ target_months    │
-│ current      │       │ monthly_essential│
-│ deadline     │       └──────────────────┘
+                         ┌──────────────┐
+                         │ app_settings │
+                         │──────────────│
+                         │ key (PK)     │
+                         │ value (JSON) │
+                         └──────────────┘
+
+┌──────────────┐         ┌──────────────┐         ┌──────────────┐
+│   expenses   │         │    goals     │         │emergency_fund│
+│──────────────│         │──────────────│         │──────────────│
+│ id (PK)      │    ┌───→│ id (PK)      │         │ id (PK)      │
+│ amount       │    │    │ name         │         │ current_amt  │
+│ category     │    │    │ target_amt   │         │ target_months│
+│ subcategory  │    │    │ current_amt  │         │ monthly_needs│
+│ date         │    │    │ target_date  │         └──────┬───────┘
+│ goal_id (FK)─┼────┘    │ instrument   │                │
+│ fund_contrib │         └──────┬───────┘                │
+└──────────────┘                │                        │
+                                │                        │
+                         ┌──────┴───────┐         ┌──────┴───────┐
+                         │    goal_     │         │    fund_     │
+                         │contributions │         │contributions │
+                         │──────────────│         │──────────────│
+                         │ id (PK)      │         │ id (PK)      │
+                         │ goal_id (FK) │         │ fund_id (FK) │
+                         │ amount       │         │ amount       │
+                         │ date         │         │ date         │
+                         └──────────────┘         └──────────────┘
+
+┌──────────────┐         ┌──────────────┐
+│    debts     │         │monthly_snap- │
+│──────────────│         │    shots     │
+│ id (PK)      │         │──────────────│
+│ name         │         │ id (PK)      │
+│ total_amt    │         │ year         │
+│ remaining    │         │ month        │
+│ interest_rate│         │ budget       │
+└──────┬───────┘         │ spent        │
+       │                 │ needs_spent  │
+┌──────┴───────┐         │ wants_spent  │
+│debt_payments │         │ savings_spent│
+│──────────────│         └──────────────┘
+│ id (PK)      │
+│ debt_id (FK) │
+│ amount       │
+│ date         │
 └──────────────┘
-        │
-        ▼
-┌──────────────────┐       ┌──────────────┐
-│ goal_transactions│       │    debts     │
-│──────────────────│       │──────────────│
-│ id (PK)          │       │ id (PK)      │
-│ goal_id (FK)     │       │ user_id (FK) │
-│ expense_id (FK)  │       │ name         │
-│ amount           │       │ total        │
-│ date             │       │ remaining    │
-└──────────────────┘       │ interest_rate│
-                           └──────────────┘
 ```
 
 ---
 
-## 3. Core Tables
+## 4. Table Definitions
 
-### 3.1 users
+### 4.1 app_settings
 
-Primary user table. Supports multi-user future expansion.
+Key-value store for all user preferences. Simple and flexible.
 
 ```sql
-CREATE TABLE users (
-    id                  TEXT PRIMARY KEY,
-    name                TEXT NOT NULL,
-    email               TEXT,
-    phone               TEXT,
-    currency_code       TEXT NOT NULL DEFAULT 'INR',
-    locale              TEXT NOT NULL DEFAULT 'en_IN',
-    profile_image_path  TEXT,
-    onboarding_complete INTEGER NOT NULL DEFAULT 0,
-    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
-    deleted_at          TEXT,
-    metadata            TEXT  -- JSON for extensibility
+CREATE TABLE app_settings (
+    key             TEXT PRIMARY KEY,
+    value           TEXT NOT NULL,  -- JSON encoded
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Default user for single-user mode
-INSERT INTO users (id, name, currency_code)
-VALUES ('default', 'User', 'INR');
+-- Default settings (inserted on first launch)
+-- IMPORTANT: All values are stored as plain TEXT (not JSON-encoded)
+-- Parse as int/bool/string in Dart based on key type
+INSERT INTO app_settings (key, value) VALUES
+    ('monthly_income', '0'),              -- int (paise)
+    ('fixed_expenses_rent', '0'),         -- int (paise)
+    ('fixed_expenses_utilities', '0'),    -- int (paise)
+    ('fixed_expenses_other', '0'),        -- int (paise)
+    ('needs_percent', '50'),              -- int (0-100)
+    ('wants_percent', '30'),              -- int (0-100)
+    ('savings_percent', '20'),            -- int (0-100)
+    ('cycle_type', 'calendar'),           -- string: 'calendar' or 'custom'
+    ('cycle_start_day', '1'),             -- int (1-28)
+    ('onboarding_complete', 'false'),     -- bool: 'true' or 'false'
+    ('app_first_launch', ''),             -- string: ISO date or empty
+    ('schema_version', '1');              -- int
 ```
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | TEXT (UUID) | Primary key |
-| name | TEXT | User's display name |
-| email | TEXT | Optional email |
-| phone | TEXT | Optional phone (for SMS parsing) |
-| currency_code | TEXT | ISO currency code (INR, USD) |
-| locale | TEXT | Locale for formatting |
-| onboarding_complete | INTEGER | 0=false, 1=true |
-| metadata | TEXT | JSON for future fields |
+**Settings Reference:**
+
+| Key | Type | Dart Parse | Description | Example |
+|-----|------|------------|-------------|---------|
+| monthly_income | int (paise) | `int.parse(value)` | Take-home salary | '5000000' (₹50,000) |
+| fixed_expenses_rent | int (paise) | `int.parse(value)` | Rent/EMI | '1500000' |
+| fixed_expenses_utilities | int (paise) | `int.parse(value)` | Bills | '300000' |
+| fixed_expenses_other | int (paise) | `int.parse(value)` | Other fixed | '200000' |
+| needs_percent | int | `int.parse(value)` | Needs allocation | '50' |
+| wants_percent | int | `int.parse(value)` | Wants allocation | '30' |
+| savings_percent | int | `int.parse(value)` | Savings allocation | '20' |
+| cycle_type | string | `value` | Budget cycle type | 'calendar' |
+| cycle_start_day | int | `int.parse(value)` | Custom cycle day | '1' |
+| onboarding_complete | bool | `value == 'true'` | Setup finished | 'true' |
+| app_first_launch | string | `value` | First launch date | '2026-01-30' |
+| schema_version | int | `int.parse(value)` | DB schema version | '1' |
 
 ---
 
-### 3.2 accounts
+### 4.2 expenses
 
-Bank accounts, wallets, cash. Enables multi-account tracking.
-
-```sql
-CREATE TABLE accounts (
-    id              TEXT PRIMARY KEY,
-    user_id         TEXT NOT NULL,
-    name            TEXT NOT NULL,
-    type            TEXT NOT NULL,  -- 'bank', 'wallet', 'cash', 'credit_card'
-    bank_name       TEXT,
-    account_number  TEXT,           -- Last 4 digits only (security)
-    current_balance INTEGER NOT NULL DEFAULT 0,  -- in paise
-    is_default      INTEGER NOT NULL DEFAULT 0,
-    is_active       INTEGER NOT NULL DEFAULT 1,
-    icon            TEXT,
-    color           TEXT,
-    sort_order      INTEGER NOT NULL DEFAULT 0,
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    deleted_at      TEXT,
-    metadata        TEXT,
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- Default cash account
-INSERT INTO accounts (id, user_id, name, type, is_default)
-VALUES ('default_cash', 'default', 'Cash', 'cash', 1);
-```
-
-| Column | Type | Description |
-|--------|------|-------------|
-| type | TEXT | bank, wallet, cash, credit_card |
-| current_balance | INTEGER | Balance in paise |
-| is_default | INTEGER | Default account for transactions |
-| sort_order | INTEGER | Display order |
-
----
-
-### 3.3 categories
-
-Hierarchical categories for expenses. Supports custom user categories.
-
-```sql
-CREATE TABLE categories (
-    id              TEXT PRIMARY KEY,
-    user_id         TEXT,           -- NULL = system default
-    parent_id       TEXT,           -- For subcategories
-    name            TEXT NOT NULL,
-    type            TEXT NOT NULL,  -- 'expense', 'income', 'transfer'
-    budget_type     TEXT,           -- 'needs', 'wants', 'savings', NULL
-    icon            TEXT NOT NULL DEFAULT 'category',
-    color           TEXT NOT NULL DEFAULT '#757575',
-    is_system       INTEGER NOT NULL DEFAULT 0,
-    is_active       INTEGER NOT NULL DEFAULT 1,
-    sort_order      INTEGER NOT NULL DEFAULT 0,
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    deleted_at      TEXT,
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL
-);
-
--- System default categories (Needs)
-INSERT INTO categories (id, name, type, budget_type, icon, is_system, sort_order) VALUES
-('cat_rent', 'Rent / EMI', 'expense', 'needs', 'home', 1, 1),
-('cat_utilities', 'Utilities & Bills', 'expense', 'needs', 'bolt', 1, 2),
-('cat_other_fixed', 'Other Fixed', 'expense', 'needs', 'receipt', 1, 3),
-('cat_food', 'Food & Dining', 'expense', 'needs', 'restaurant', 1, 4),
-('cat_transport', 'Transport', 'expense', 'needs', 'directions_car', 1, 5),
-('cat_health', 'Health & Wellness', 'expense', 'needs', 'medical_services', 1, 6);
-
--- System default categories (Wants)
-INSERT INTO categories (id, name, type, budget_type, icon, is_system, sort_order) VALUES
-('cat_shopping', 'Shopping', 'expense', 'wants', 'shopping_bag', 1, 7),
-('cat_entertainment', 'Entertainment', 'expense', 'wants', 'movie', 1, 8),
-('cat_other_variable', 'Other', 'expense', 'wants', 'more_horiz', 1, 9);
-
--- System default categories (Savings)
-INSERT INTO categories (id, name, type, budget_type, icon, is_system, sort_order) VALUES
-('cat_emergency_fund', 'Emergency Fund', 'expense', 'savings', 'lock', 1, 10),
-('cat_goal', 'Goal Savings', 'expense', 'savings', 'flag', 1, 11);
-
--- Income categories
-INSERT INTO categories (id, name, type, icon, is_system, sort_order) VALUES
-('cat_salary', 'Salary', 'income', 'payments', 1, 1),
-('cat_bonus', 'Bonus', 'income', 'card_giftcard', 1, 2),
-('cat_investment_returns', 'Investment Returns', 'income', 'trending_up', 1, 3),
-('cat_other_income', 'Other Income', 'income', 'attach_money', 1, 4);
-```
-
-| Column | Type | Description |
-|--------|------|-------------|
-| parent_id | TEXT | For hierarchical categories |
-| type | TEXT | expense, income, transfer |
-| budget_type | TEXT | needs, wants, savings (for 50-30-20) |
-| is_system | INTEGER | 1=default category, can't delete |
-
----
-
-## 4. Transaction Tables
-
-### 4.1 expenses
-
-All financial transactions (expenses, income, transfers).
+All expense transactions. The most frequently accessed table.
 
 ```sql
 CREATE TABLE expenses (
-    id                  TEXT PRIMARY KEY,
-    user_id             TEXT NOT NULL,
-    account_id          TEXT NOT NULL,
-    category_id         TEXT NOT NULL,
-    goal_id             TEXT,               -- If savings to specific goal
-    debt_id             TEXT,               -- If debt payment
+    id              TEXT PRIMARY KEY,
 
-    amount              INTEGER NOT NULL,   -- in paise (positive value)
-    type                TEXT NOT NULL,      -- 'expense', 'income', 'transfer'
+    -- Amount (always positive, in paise)
+    amount          INTEGER NOT NULL CHECK (amount > 0),
 
-    date                TEXT NOT NULL,      -- YYYY-MM-DD
-    time                TEXT,               -- HH:MM:SS (optional)
+    -- Category: 'needs', 'wants', 'savings'
+    category        TEXT NOT NULL CHECK (category IN ('needs', 'wants', 'savings')),
 
-    note                TEXT,
-    payee               TEXT,               -- Merchant/person name
+    -- Subcategory (depends on category)
+    -- Needs: 'rent_emi', 'utilities', 'other_fixed', 'food', 'transport', 'health'
+    -- Wants: 'shopping', 'entertainment', 'other'
+    -- Savings: 'emergency_fund', 'goal'
+    subcategory     TEXT NOT NULL,
 
-    -- For recurring transactions
-    is_recurring        INTEGER NOT NULL DEFAULT 0,
-    recurring_id        TEXT,               -- Links to recurring_transactions
+    -- For savings to goal: which goal
+    goal_id         TEXT,
 
-    -- For SMS auto-import
-    source              TEXT NOT NULL DEFAULT 'manual',  -- 'manual', 'sms', 'import'
-    sms_hash            TEXT,               -- To prevent duplicate SMS imports
+    -- For savings to emergency fund: mark as fund contribution
+    is_fund_contribution INTEGER NOT NULL DEFAULT 0,
 
-    -- For splits/shared expenses
-    is_split            INTEGER NOT NULL DEFAULT 0,
-    split_group_id      TEXT,
+    -- Transaction date (YYYY-MM-DD)
+    date            TEXT NOT NULL,
 
-    -- Location (optional)
-    latitude            REAL,
-    longitude           REAL,
-    location_name       TEXT,
-
-    -- Attachments
-    receipt_path        TEXT,
+    -- Optional note
+    note            TEXT,
 
     -- Audit
-    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
-    deleted_at          TEXT,
-    metadata            TEXT,               -- JSON for extensibility
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at      TEXT,  -- Soft delete
 
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT,
-    FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE SET NULL,
-    FOREIGN KEY (debt_id) REFERENCES debts(id) ON DELETE SET NULL,
-    FOREIGN KEY (recurring_id) REFERENCES recurring_transactions(id) ON DELETE SET NULL
+    FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE SET NULL
 );
 ```
 
-| Column | Type | Description |
-|--------|------|-------------|
-| amount | INTEGER | Amount in paise (always positive) |
-| type | TEXT | expense, income, transfer |
-| date | TEXT | ISO date YYYY-MM-DD |
-| goal_id | TEXT | If this is a savings contribution to a goal |
-| debt_id | TEXT | If this is a debt payment |
-| source | TEXT | How this was created (manual, sms, import) |
-| sms_hash | TEXT | Hash of SMS content to prevent duplicates |
+**Category & Subcategory Values:**
+
+| Category | Subcategory | Maps to App Enum |
+|----------|-------------|------------------|
+| needs | rent_emi | ExpenseSubcategory.rentEmi |
+| needs | utilities | ExpenseSubcategory.utilitiesBills |
+| needs | other_fixed | ExpenseSubcategory.otherFixed |
+| needs | food | ExpenseSubcategory.foodDining |
+| needs | transport | ExpenseSubcategory.transport |
+| needs | health | ExpenseSubcategory.healthWellness |
+| wants | shopping | ExpenseSubcategory.shopping |
+| wants | entertainment | ExpenseSubcategory.entertainment |
+| wants | other | ExpenseSubcategory.otherVariable |
+| savings | emergency_fund | SavingsDestination.emergencyFund |
+| savings | goal | SavingsDestination.goal |
 
 ---
 
-### 4.2 goals
+### 4.3 goals
 
 Savings goals with timeline tracking.
 
 ```sql
 CREATE TABLE goals (
-    id                  TEXT PRIMARY KEY,
-    user_id             TEXT NOT NULL,
+    id              TEXT PRIMARY KEY,
 
-    name                TEXT NOT NULL,
-    description         TEXT,
+    name            TEXT NOT NULL,
 
-    target_amount       INTEGER NOT NULL,   -- in paise
-    current_amount      INTEGER NOT NULL DEFAULT 0,  -- in paise
+    -- Amounts in paise
+    target_amount   INTEGER NOT NULL CHECK (target_amount > 0),
+    current_amount  INTEGER NOT NULL DEFAULT 0 CHECK (current_amount >= 0),
 
-    target_date         TEXT NOT NULL,      -- YYYY-MM-DD
+    -- Target date (YYYY-MM-DD)
+    target_date     TEXT NOT NULL,
 
-    -- Savings instrument
-    instrument          TEXT NOT NULL,      -- 'savings_account', 'mutual_fund', etc.
-    instrument_details  TEXT,               -- JSON: account number, fund name, etc.
+    -- Instrument: 'savings_account', 'piggy_bank', 'fixed_deposit',
+    --             'mutual_funds', 'recurring_deposit', 'stocks', 'index_funds', 'bonds'
+    instrument      TEXT NOT NULL,
 
-    -- Visual
-    icon                TEXT NOT NULL DEFAULT 'flag',
-    color               TEXT NOT NULL DEFAULT '#000000',
-    image_path          TEXT,               -- Custom goal image
-
-    -- Status
-    status              TEXT NOT NULL DEFAULT 'active',  -- 'active', 'completed', 'paused', 'cancelled'
-    completed_at        TEXT,
-
-    -- Priority
-    priority            INTEGER NOT NULL DEFAULT 0,  -- Higher = more important
-
-    -- Reminders
-    has_reminder        INTEGER NOT NULL DEFAULT 0,
-    reminder_day        INTEGER,            -- Day of month (1-28)
+    -- Status: 'active', 'completed', 'paused'
+    status          TEXT NOT NULL DEFAULT 'active',
+    completed_at    TEXT,
 
     -- Audit
-    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
-    deleted_at          TEXT,
-    metadata            TEXT,
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at      TEXT
 );
 ```
 
-| Column | Type | Description |
-|--------|------|-------------|
-| target_amount | INTEGER | Goal target in paise |
-| current_amount | INTEGER | Amount saved so far |
-| instrument | TEXT | savings_account, fixed_deposit, mutual_fund, etc. |
-| status | TEXT | active, completed, paused, cancelled |
-| priority | INTEGER | For sorting (higher = more important) |
+**Computed Properties (in Dart, not DB):**
+
+```dart
+// Timeline calculation
+GoalTimeline get timeline {
+  final years = targetDate.difference(DateTime.now()).inDays / 365;
+  if (years < 1) return GoalTimeline.shortTerm;
+  if (years <= 5) return GoalTimeline.midTerm;
+  return GoalTimeline.longTerm;
+}
+
+// Progress
+double get progress => (currentAmount / targetAmount * 100).clamp(0, 100);
+double get remaining => max(0, targetAmount - currentAmount);
+bool get isCompleted => currentAmount >= targetAmount;
+```
 
 ---
 
-### 4.3 goal_transactions
+### 4.4 goal_contributions
 
-Tracks all contributions to goals (linked to expenses).
+Audit trail for goal savings. Created automatically when savings expense targets a goal.
 
 ```sql
-CREATE TABLE goal_transactions (
+CREATE TABLE goal_contributions (
     id              TEXT PRIMARY KEY,
     goal_id         TEXT NOT NULL,
-    expense_id      TEXT,               -- NULL if manual adjustment
+    expense_id      TEXT,  -- NULL if manual adjustment
 
-    amount          INTEGER NOT NULL,   -- in paise (positive=add, negative=withdraw)
-    type            TEXT NOT NULL,      -- 'contribution', 'withdrawal', 'adjustment', 'interest'
+    -- Amount in paise (positive = add, negative = withdraw)
+    amount          INTEGER NOT NULL,
+
+    -- Type: 'contribution', 'withdrawal', 'adjustment'
+    type            TEXT NOT NULL DEFAULT 'contribution',
 
     date            TEXT NOT NULL,
     note            TEXT,
@@ -421,10 +348,380 @@ CREATE TABLE goal_transactions (
     FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE,
     FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE SET NULL
 );
+```
 
--- Trigger to update goal.current_amount
-CREATE TRIGGER update_goal_amount_after_insert
-AFTER INSERT ON goal_transactions
+**Expense Edit/Delete Semantics:**
+
+When an expense linked to a goal contribution is modified or deleted:
+
+```dart
+/// SCENARIO 1: User deletes a savings expense
+/// Action: Soft delete the expense, create a reversal contribution
+Future<void> deleteSavingsExpense(String expenseId) async {
+  final expense = await getExpense(expenseId);
+  if (expense.goalId != null) {
+    // 1. Mark expense as deleted
+    await softDeleteExpense(expenseId);
+
+    // 2. Create reversal contribution (negative amount)
+    await insertGoalContribution(GoalContribution(
+      id: generateId(),
+      goalId: expense.goalId!,
+      expenseId: expenseId,  // Link to deleted expense for audit
+      amount: -expense.amount,  // Negative to reverse
+      type: 'withdrawal',
+      date: DateTime.now().toIso8601String().split('T')[0],
+      note: 'Reversed: expense deleted',
+    ));
+    // Trigger auto-updates goal.current_amount
+  }
+}
+
+/// SCENARIO 2: User edits a savings expense amount
+/// Action: Create adjustment contribution for the difference
+Future<void> updateSavingsExpense(String expenseId, int newAmount) async {
+  final oldExpense = await getExpense(expenseId);
+  if (oldExpense.goalId != null) {
+    final difference = newAmount - oldExpense.amount;
+    if (difference != 0) {
+      // Create adjustment contribution
+      await insertGoalContribution(GoalContribution(
+        id: generateId(),
+        goalId: oldExpense.goalId!,
+        expenseId: expenseId,
+        amount: difference,  // Can be positive or negative
+        type: 'adjustment',
+        date: DateTime.now().toIso8601String().split('T')[0],
+        note: 'Adjusted: expense modified',
+      ));
+    }
+  }
+  await updateExpense(expenseId, amount: newAmount);
+}
+
+/// SCENARIO 3: User changes goal on expense (rare)
+/// Action: Reverse from old goal, contribute to new goal
+```
+
+---
+
+### 4.5 emergency_fund
+
+Single emergency fund per user. Always exactly 1 row.
+
+```sql
+CREATE TABLE emergency_fund (
+    id                  TEXT PRIMARY KEY DEFAULT 'default_fund',
+
+    -- Current saved amount (paise)
+    current_amount      INTEGER NOT NULL DEFAULT 0,
+
+    -- Target: X months of essentials
+    target_months       INTEGER NOT NULL DEFAULT 6,
+
+    -- Monthly essential expenses (paise) - from needs budget
+    monthly_essentials  INTEGER NOT NULL DEFAULT 0,
+
+    -- Where it's stored
+    instrument          TEXT NOT NULL DEFAULT 'savings_account',
+
+    updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Initialize single fund on first launch
+INSERT INTO emergency_fund (id) VALUES ('default_fund');
+```
+
+**monthly_essentials Calculation:**
+
+This field represents the user's monthly essential expenses (needs). It is calculated from app_settings:
+
+```dart
+// How monthly_essentials is derived
+int calculateMonthlyEssentials(Map<String, String> settings) {
+  final income = int.parse(settings['monthly_income'] ?? '0');
+  final needsPercent = int.parse(settings['needs_percent'] ?? '50');
+
+  // Monthly essentials = income allocated to needs
+  return (income * needsPercent / 100).round();
+}
+
+// When to update:
+// 1. When user changes monthly_income
+// 2. When user changes needs_percent
+// 3. During onboarding setup completion
+```
+
+**Computed Properties (in Dart):**
+
+```dart
+int get targetAmount => monthlyEssentials * targetMonths;
+double get runwayMonths => monthlyEssentials > 0
+    ? currentAmount / monthlyEssentials
+    : 0;
+double get progress => targetAmount > 0
+    ? (currentAmount / targetAmount * 100).clamp(0, 100)
+    : 0;
+```
+
+---
+
+### 4.6 fund_contributions
+
+Audit trail for emergency fund. Created when savings expense targets emergency fund.
+
+```sql
+CREATE TABLE fund_contributions (
+    id              TEXT PRIMARY KEY,
+    fund_id         TEXT NOT NULL DEFAULT 'default_fund',
+    expense_id      TEXT,
+
+    amount          INTEGER NOT NULL,
+    type            TEXT NOT NULL DEFAULT 'contribution',
+
+    date            TEXT NOT NULL,
+    note            TEXT,
+
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+
+    FOREIGN KEY (fund_id) REFERENCES emergency_fund(id) ON DELETE CASCADE,
+    FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE SET NULL
+);
+```
+
+---
+
+### 4.7 debts
+
+Debt tracking with automatic priority based on interest rate.
+
+```sql
+CREATE TABLE debts (
+    id              TEXT PRIMARY KEY,
+
+    name            TEXT NOT NULL,
+    lender          TEXT,  -- Bank/person name
+
+    -- Amounts in paise
+    total_amount    INTEGER NOT NULL CHECK (total_amount > 0),
+    remaining_amount INTEGER NOT NULL CHECK (remaining_amount >= 0),
+
+    -- Interest rate (annual %, e.g., 15.5)
+    interest_rate   REAL NOT NULL CHECK (interest_rate >= 0),
+
+    -- Minimum monthly payment (paise)
+    minimum_payment INTEGER NOT NULL DEFAULT 0,
+
+    -- Status: 'active', 'paid_off'
+    status          TEXT NOT NULL DEFAULT 'active',
+    paid_off_at     TEXT,
+
+    -- Audit
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at      TEXT
+);
+```
+
+**Priority Calculation (in Dart):**
+
+```dart
+DebtPriority get priority {
+  if (interestRate > 15) return DebtPriority.high;
+  if (interestRate >= 8) return DebtPriority.medium;
+  return DebtPriority.low;
+}
+```
+
+---
+
+### 4.8 debt_payments
+
+Payment history for debts.
+
+```sql
+CREATE TABLE debt_payments (
+    id              TEXT PRIMARY KEY,
+    debt_id         TEXT NOT NULL,
+    expense_id      TEXT,
+
+    amount          INTEGER NOT NULL CHECK (amount > 0),
+
+    date            TEXT NOT NULL,
+    note            TEXT,
+
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+
+    FOREIGN KEY (debt_id) REFERENCES debts(id) ON DELETE CASCADE,
+    FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE SET NULL
+);
+```
+
+---
+
+### 4.9 monthly_snapshots
+
+Pre-computed monthly summaries for Budget History. Updated at end of each month or on-demand.
+
+```sql
+CREATE TABLE monthly_snapshots (
+    id              TEXT PRIMARY KEY,  -- Format: 'YYYY-MM'
+
+    year            INTEGER NOT NULL,
+    month           INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
+
+    -- Budget for that month (paise)
+    total_budget    INTEGER NOT NULL DEFAULT 0,
+    needs_budget    INTEGER NOT NULL DEFAULT 0,
+    wants_budget    INTEGER NOT NULL DEFAULT 0,
+    savings_budget  INTEGER NOT NULL DEFAULT 0,
+
+    -- Actual spending (paise)
+    total_spent     INTEGER NOT NULL DEFAULT 0,
+    needs_spent     INTEGER NOT NULL DEFAULT 0,
+    wants_spent     INTEGER NOT NULL DEFAULT 0,
+    savings_spent   INTEGER NOT NULL DEFAULT 0,
+
+    -- Result
+    remaining       INTEGER NOT NULL DEFAULT 0,  -- budget - spent
+
+    -- Expense count
+    transaction_count INTEGER NOT NULL DEFAULT 0,
+
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+
+    UNIQUE(year, month)
+);
+```
+
+**Monthly Snapshot Generation Strategy:**
+
+Snapshots are generated/updated at specific trigger points, not in real-time:
+
+```dart
+/// WHEN to generate/update snapshots:
+/// 1. When app opens and current month has no snapshot
+/// 2. When navigating to Budget History screen
+/// 3. When previous month ends (detected on app open)
+/// 4. Manual refresh from Budget History
+
+class SnapshotService {
+  /// Generate snapshot for a specific month
+  Future<MonthlySnapshot> generateSnapshot(int year, int month) async {
+    // Get cycle boundaries for this month
+    final cycleStart = _getCycleStart(year, month);
+    final cycleEnd = _getCycleEnd(year, month);
+
+    // Get settings AS THEY WERE for that month
+    // (For historical accuracy, consider storing settings in snapshot)
+    final income = await getSetting('monthly_income');
+    final needsPct = await getSetting('needs_percent');
+    final wantsPct = await getSetting('wants_percent');
+    final savingsPct = await getSetting('savings_percent');
+
+    // Calculate budgets
+    final totalBudget = income;
+    final needsBudget = (income * needsPct / 100).round();
+    final wantsBudget = (income * wantsPct / 100).round();
+    final savingsBudget = (income * savingsPct / 100).round();
+
+    // Get actual spending from expenses table
+    final expenses = await getExpensesForPeriod(cycleStart, cycleEnd);
+    final needsSpent = expenses
+        .where((e) => e.category == 'needs')
+        .fold(0, (sum, e) => sum + e.amount);
+    final wantsSpent = expenses
+        .where((e) => e.category == 'wants')
+        .fold(0, (sum, e) => sum + e.amount);
+    final savingsSpent = expenses
+        .where((e) => e.category == 'savings')
+        .fold(0, (sum, e) => sum + e.amount);
+
+    return MonthlySnapshot(
+      id: '$year-${month.toString().padLeft(2, '0')}',
+      year: year,
+      month: month,
+      totalBudget: totalBudget,
+      needsBudget: needsBudget,
+      wantsBudget: wantsBudget,
+      savingsBudget: savingsBudget,
+      totalSpent: needsSpent + wantsSpent + savingsSpent,
+      needsSpent: needsSpent,
+      wantsSpent: wantsSpent,
+      savingsSpent: savingsSpent,
+      remaining: totalBudget - (needsSpent + wantsSpent + savingsSpent),
+      transactionCount: expenses.length,
+    );
+  }
+
+  /// Called on app open - ensure current and past month snapshots exist
+  Future<void> ensureSnapshots() async {
+    final now = DateTime.now();
+
+    // Current month (may need updates as expenses are added)
+    await generateOrUpdateSnapshot(now.year, now.month);
+
+    // Previous month (finalize if not exists)
+    final prev = DateTime(now.year, now.month - 1);
+    await generateOrUpdateSnapshot(prev.year, prev.month);
+  }
+
+  /// Cleanup: Keep only last 24 months
+  Future<void> pruneOldSnapshots() async {
+    final cutoff = DateTime.now().subtract(Duration(days: 730)); // ~2 years
+    await db.delete('monthly_snapshots',
+        where: 'year < ? OR (year = ? AND month < ?)',
+        whereArgs: [cutoff.year, cutoff.year, cutoff.month]);
+  }
+}
+```
+
+**Important Considerations:**
+
+1. **Current Month Snapshot**: Always recalculated (not cached) since expenses change
+2. **Past Month Snapshots**: Can be cached, only regenerate if expenses for that month are edited
+3. **Settings at Snapshot Time**: Consider storing budget settings in snapshot for historical accuracy (if user changes income, old snapshots should reflect old budget)
+
+---
+
+## 5. Indexes
+
+Strategic indexes for common query patterns:
+
+```sql
+-- Expenses: Most queried table
+CREATE INDEX idx_expenses_date ON expenses(date) WHERE deleted_at IS NULL;
+CREATE INDEX idx_expenses_category ON expenses(category) WHERE deleted_at IS NULL;
+CREATE INDEX idx_expenses_date_category ON expenses(date, category) WHERE deleted_at IS NULL;
+CREATE INDEX idx_expenses_goal ON expenses(goal_id) WHERE goal_id IS NOT NULL;
+
+-- Goals: Active goals query
+CREATE INDEX idx_goals_status ON goals(status) WHERE deleted_at IS NULL;
+CREATE INDEX idx_goals_target_date ON goals(target_date) WHERE status = 'active';
+
+-- Contributions: By goal/fund
+CREATE INDEX idx_goal_contributions_goal ON goal_contributions(goal_id);
+CREATE INDEX idx_fund_contributions_fund ON fund_contributions(fund_id);
+
+-- Debts: Active debts by priority
+CREATE INDEX idx_debts_status ON debts(status) WHERE deleted_at IS NULL;
+CREATE INDEX idx_debts_interest ON debts(interest_rate DESC) WHERE status = 'active';
+
+-- Monthly snapshots: Date range queries
+CREATE INDEX idx_snapshots_date ON monthly_snapshots(year DESC, month DESC);
+```
+
+---
+
+## 6. Triggers
+
+Automatic data maintenance:
+
+```sql
+-- Update goal.current_amount when contribution added
+CREATE TRIGGER trg_goal_contribution_insert
+AFTER INSERT ON goal_contributions
 BEGIN
     UPDATE goals
     SET current_amount = current_amount + NEW.amount,
@@ -440,1081 +737,560 @@ BEGIN
         END
     WHERE id = NEW.goal_id;
 END;
-```
 
----
-
-### 4.4 emergency_fund
-
-Emergency fund tracking (separate from goals).
-
-```sql
-CREATE TABLE emergency_fund (
-    id                      TEXT PRIMARY KEY,
-    user_id                 TEXT NOT NULL UNIQUE,  -- One per user
-
-    current_amount          INTEGER NOT NULL DEFAULT 0,  -- in paise
-    target_months           INTEGER NOT NULL DEFAULT 6,  -- Target runway
-
-    -- Calculated from user's budget settings
-    monthly_essentials      INTEGER NOT NULL DEFAULT 0,  -- in paise
-
-    -- Where the money is kept
-    instrument              TEXT NOT NULL DEFAULT 'savings_account',
-    instrument_details      TEXT,
-
-    created_at              TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at              TEXT NOT NULL DEFAULT (datetime('now')),
-    metadata                TEXT,
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- Computed columns (handled in app logic):
--- target_amount = monthly_essentials * target_months
--- runway_months = current_amount / monthly_essentials
--- progress = (current_amount / target_amount) * 100
-```
-
----
-
-### 4.5 emergency_fund_transactions
-
-```sql
-CREATE TABLE emergency_fund_transactions (
-    id              TEXT PRIMARY KEY,
-    fund_id         TEXT NOT NULL,
-    expense_id      TEXT,
-
-    amount          INTEGER NOT NULL,   -- positive=add, negative=withdraw
-    type            TEXT NOT NULL,      -- 'contribution', 'withdrawal', 'interest'
-
-    date            TEXT NOT NULL,
-    note            TEXT,
-
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-
-    FOREIGN KEY (fund_id) REFERENCES emergency_fund(id) ON DELETE CASCADE,
-    FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE SET NULL
-);
-
--- Trigger to update fund amount
-CREATE TRIGGER update_emergency_fund_after_insert
-AFTER INSERT ON emergency_fund_transactions
+-- Update emergency_fund.current_amount when contribution added
+CREATE TRIGGER trg_fund_contribution_insert
+AFTER INSERT ON fund_contributions
 BEGIN
     UPDATE emergency_fund
     SET current_amount = current_amount + NEW.amount,
         updated_at = datetime('now')
     WHERE id = NEW.fund_id;
 END;
-```
 
----
-
-## 5. Settings Tables
-
-### 5.1 user_settings
-
-All user preferences in key-value format.
-
-```sql
-CREATE TABLE user_settings (
-    id              TEXT PRIMARY KEY,
-    user_id         TEXT NOT NULL,
-    key             TEXT NOT NULL,
-    value           TEXT NOT NULL,      -- JSON encoded
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE(user_id, key)
-);
-
--- Default settings
-INSERT INTO user_settings (id, user_id, key, value) VALUES
-('setting_1', 'default', 'monthly_income', '0'),
-('setting_2', 'default', 'fixed_expenses', '{"rent": 0, "utilities": 0, "other": 0}'),
-('setting_3', 'default', 'budget_rule', '"50-30-20"'),
-('setting_4', 'default', 'needs_percentage', '50'),
-('setting_5', 'default', 'wants_percentage', '30'),
-('setting_6', 'default', 'savings_percentage', '20'),
-('setting_7', 'default', 'cycle_type', '"calendar_month"'),
-('setting_8', 'default', 'cycle_start_day', '1'),
-('setting_9', 'default', 'theme_mode', '"system"'),
-('setting_10', 'default', 'notifications_enabled', 'true'),
-('setting_11', 'default', 'sms_parsing_enabled', 'false'),
-('setting_12', 'default', 'biometric_lock', 'false');
-```
-
-| Key | Value Type | Description |
-|-----|------------|-------------|
-| monthly_income | INTEGER | Monthly take-home in paise |
-| fixed_expenses | JSON | {rent, utilities, other} in paise |
-| budget_rule | STRING | "50-30-20" or custom |
-| needs_percentage | INTEGER | 0-100 |
-| wants_percentage | INTEGER | 0-100 |
-| savings_percentage | INTEGER | 0-100 |
-| cycle_type | STRING | "calendar_month" or "custom_day" |
-| cycle_start_day | INTEGER | 1-28 |
-| theme_mode | STRING | "light", "dark", "system" |
-
----
-
-### 5.2 budget_cycles
-
-Track each budget cycle period.
-
-```sql
-CREATE TABLE budget_cycles (
-    id                  TEXT PRIMARY KEY,
-    user_id             TEXT NOT NULL,
-
-    start_date          TEXT NOT NULL,      -- YYYY-MM-DD
-    end_date            TEXT NOT NULL,      -- YYYY-MM-DD
-
-    -- Budget amounts for this cycle (in paise)
-    total_budget        INTEGER NOT NULL,
-    needs_budget        INTEGER NOT NULL,
-    wants_budget        INTEGER NOT NULL,
-    savings_budget      INTEGER NOT NULL,
-
-    -- Actual spending (updated via triggers or app logic)
-    total_spent         INTEGER NOT NULL DEFAULT 0,
-    needs_spent         INTEGER NOT NULL DEFAULT 0,
-    wants_spent         INTEGER NOT NULL DEFAULT 0,
-    savings_spent       INTEGER NOT NULL DEFAULT 0,
-
-    status              TEXT NOT NULL DEFAULT 'active',  -- 'active', 'completed'
-
-    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-```
-
----
-
-### 5.3 category_budgets
-
-Per-category budget limits (optional, for detailed budgeting).
-
-```sql
-CREATE TABLE category_budgets (
-    id              TEXT PRIMARY KEY,
-    user_id         TEXT NOT NULL,
-    category_id     TEXT NOT NULL,
-
-    amount          INTEGER NOT NULL,   -- Monthly budget in paise
-    period_type     TEXT NOT NULL DEFAULT 'monthly',  -- 'weekly', 'monthly', 'yearly'
-
-    alert_threshold INTEGER NOT NULL DEFAULT 80,  -- Alert at 80% spent
-
-    is_active       INTEGER NOT NULL DEFAULT 1,
-
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
-    UNIQUE(user_id, category_id)
-);
-```
-
----
-
-## 6. Financial Plan Tables
-
-### 6.1 debts
-
-Debt tracking with priority system.
-
-```sql
-CREATE TABLE debts (
-    id                  TEXT PRIMARY KEY,
-    user_id             TEXT NOT NULL,
-
-    name                TEXT NOT NULL,
-    description         TEXT,
-    lender              TEXT,               -- Bank/person name
-
-    total_amount        INTEGER NOT NULL,   -- Original debt in paise
-    remaining_amount    INTEGER NOT NULL,   -- Current balance in paise
-
-    interest_rate       REAL NOT NULL,      -- Annual percentage (15.5 = 15.5%)
-    interest_type       TEXT NOT NULL DEFAULT 'fixed',  -- 'fixed', 'variable'
-
-    minimum_payment     INTEGER NOT NULL DEFAULT 0,  -- Monthly minimum in paise
-
-    start_date          TEXT NOT NULL,      -- When debt was taken
-    due_date            TEXT,               -- When it should be paid off
-
-    -- Priority (calculated from interest_rate, can be overridden)
-    priority            TEXT NOT NULL,      -- 'high', 'medium', 'low'
-    priority_override   INTEGER NOT NULL DEFAULT 0,  -- User manually set priority
-
-    -- Status
-    status              TEXT NOT NULL DEFAULT 'active',  -- 'active', 'paid_off'
-    paid_off_at         TEXT,
-
-    -- Account linked (optional)
-    account_id          TEXT,               -- Credit card account, etc.
-
-    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
-    deleted_at          TEXT,
-    metadata            TEXT,
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE SET NULL
-);
-
--- Priority calculation helper view
-CREATE VIEW debt_priorities AS
-SELECT
-    id,
-    name,
-    interest_rate,
-    CASE
-        WHEN priority_override = 1 THEN priority
-        WHEN interest_rate > 15 THEN 'high'
-        WHEN interest_rate >= 8 THEN 'medium'
-        ELSE 'low'
-    END as calculated_priority
-FROM debts
-WHERE deleted_at IS NULL AND status = 'active';
-```
-
----
-
-### 6.2 debt_payments
-
-Track all debt payments.
-
-```sql
-CREATE TABLE debt_payments (
-    id              TEXT PRIMARY KEY,
-    debt_id         TEXT NOT NULL,
-    expense_id      TEXT,
-
-    amount          INTEGER NOT NULL,   -- Payment amount in paise
-    principal       INTEGER NOT NULL,   -- Principal portion
-    interest        INTEGER NOT NULL,   -- Interest portion
-
-    date            TEXT NOT NULL,
-    note            TEXT,
-
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-
-    FOREIGN KEY (debt_id) REFERENCES debts(id) ON DELETE CASCADE,
-    FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE SET NULL
-);
-
--- Trigger to update debt remaining amount
-CREATE TRIGGER update_debt_after_payment
+-- Update debt.remaining_amount when payment made
+CREATE TRIGGER trg_debt_payment_insert
 AFTER INSERT ON debt_payments
 BEGIN
     UPDATE debts
-    SET remaining_amount = remaining_amount - NEW.principal,
+    SET remaining_amount = remaining_amount - NEW.amount,
         updated_at = datetime('now'),
         status = CASE
-            WHEN remaining_amount - NEW.principal <= 0 THEN 'paid_off'
+            WHEN remaining_amount - NEW.amount <= 0 THEN 'paid_off'
             ELSE status
         END,
         paid_off_at = CASE
-            WHEN remaining_amount - NEW.principal <= 0 THEN datetime('now')
+            WHEN remaining_amount - NEW.amount <= 0 THEN datetime('now')
             ELSE paid_off_at
         END
     WHERE id = NEW.debt_id;
+END;
+
+-- Update timestamps on settings change
+CREATE TRIGGER trg_settings_update
+AFTER UPDATE ON app_settings
+BEGIN
+    UPDATE app_settings SET updated_at = datetime('now') WHERE key = NEW.key;
 END;
 ```
 
 ---
 
-### 6.3 financial_plan_progress
+## 7. Queries by Screen
 
-Track user progress through 10-step financial plan.
+### 7.1 Home Screen
 
 ```sql
-CREATE TABLE financial_plan_progress (
-    id              TEXT PRIMARY KEY,
-    user_id         TEXT NOT NULL,
+-- Get current cycle budget (from settings)
+SELECT
+    CAST(json_extract(
+        (SELECT value FROM app_settings WHERE key = 'monthly_income'), '$'
+    ) AS INTEGER) as income,
+    CAST((SELECT value FROM app_settings WHERE key = 'needs_percent') AS INTEGER) as needs_pct,
+    CAST((SELECT value FROM app_settings WHERE key = 'wants_percent') AS INTEGER) as wants_pct,
+    CAST((SELECT value FROM app_settings WHERE key = 'savings_percent') AS INTEGER) as savings_pct;
 
-    step            TEXT NOT NULL,      -- 'income', 'budget_rule', 'needs', etc.
-    status          TEXT NOT NULL DEFAULT 'pending',  -- 'pending', 'in_progress', 'completed'
+-- Get expenses for current cycle
+SELECT * FROM expenses
+WHERE date BETWEEN :cycle_start AND :cycle_end
+AND deleted_at IS NULL
+ORDER BY date DESC, created_at DESC;
 
-    completed_at    TEXT,
-    notes           TEXT,
+-- Get spending by category for current cycle
+SELECT
+    category,
+    SUM(amount) as total_spent,
+    COUNT(*) as count
+FROM expenses
+WHERE date BETWEEN :cycle_start AND :cycle_end
+AND deleted_at IS NULL
+GROUP BY category;
 
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+-- Get recent expenses (last 5)
+SELECT * FROM expenses
+WHERE deleted_at IS NULL
+ORDER BY created_at DESC
+LIMIT 5;
+```
 
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE(user_id, step)
-);
+### 7.2 Monthly Budget Screen
 
--- Initialize all steps for a user
-INSERT INTO financial_plan_progress (id, user_id, step, status) VALUES
-('plan_1', 'default', 'income', 'pending'),
-('plan_2', 'default', 'budget_rule', 'pending'),
-('plan_3', 'default', 'needs', 'pending'),
-('plan_4', 'default', 'wants', 'pending'),
-('plan_5', 'default', 'goals', 'pending'),
-('plan_6', 'default', 'emergency_fund', 'pending'),
-('plan_7', 'default', 'debt', 'pending'),
-('plan_8', 'default', 'savings', 'pending'),
-('plan_9', 'default', 'automate', 'pending'),
-('plan_10', 'default', 'review', 'pending');
+```sql
+-- Get 50-30-20 breakdown for current cycle
+SELECT
+    category,
+    subcategory,
+    SUM(amount) as spent
+FROM expenses
+WHERE date BETWEEN :cycle_start AND :cycle_end
+AND deleted_at IS NULL
+GROUP BY category, subcategory;
+```
+
+### 7.3 Budget History Screen
+
+```sql
+-- Get last 24 months of snapshots
+SELECT
+    year,
+    month,
+    total_budget,
+    total_spent,
+    remaining,
+    needs_spent,
+    wants_spent,
+    savings_spent
+FROM monthly_snapshots
+ORDER BY year DESC, month DESC
+LIMIT 24;
+
+-- Get or create snapshot for specific month (done in Dart)
+SELECT * FROM monthly_snapshots WHERE year = :year AND month = :month;
+```
+
+### 7.4 Goals Screen
+
+```sql
+-- Get all active goals
+SELECT * FROM goals
+WHERE status = 'active'
+AND deleted_at IS NULL
+ORDER BY target_date ASC;
+
+-- Get total across all goals
+SELECT
+    SUM(current_amount) as total_saved,
+    SUM(target_amount) as total_target,
+    COUNT(*) as goal_count
+FROM goals
+WHERE status = 'active'
+AND deleted_at IS NULL;
+```
+
+### 7.5 Goal Detail Screen
+
+```sql
+-- Get single goal
+SELECT * FROM goals WHERE id = :goal_id;
+
+-- Get contribution history
+SELECT * FROM goal_contributions
+WHERE goal_id = :goal_id
+ORDER BY date DESC;
+```
+
+### 7.6 Emergency Fund Screen
+
+```sql
+-- Get fund status
+SELECT * FROM emergency_fund WHERE id = 'default_fund';
+
+-- Get contribution history
+SELECT * FROM fund_contributions
+WHERE fund_id = 'default_fund'
+ORDER BY date DESC;
+```
+
+### 7.7 Debt Screen
+
+```sql
+-- Get all active debts by priority
+SELECT *,
+    CASE
+        WHEN interest_rate > 15 THEN 'high'
+        WHEN interest_rate >= 8 THEN 'medium'
+        ELSE 'low'
+    END as priority
+FROM debts
+WHERE status = 'active'
+AND deleted_at IS NULL
+ORDER BY interest_rate DESC;
+
+-- Get debt payment history
+SELECT * FROM debt_payments
+WHERE debt_id = :debt_id
+ORDER BY date DESC;
+```
+
+### 7.8 Profile Screen
+
+```sql
+-- Get all settings
+SELECT key, value FROM app_settings;
+
+-- Update setting
+UPDATE app_settings SET value = :value WHERE key = :key;
 ```
 
 ---
 
-## 7. Analytics & History Tables
+## 8. Migration Strategy
 
-### 7.1 daily_summaries
+### 8.1 Version Tracking
 
-Pre-aggregated daily data for fast analytics.
-
-```sql
-CREATE TABLE daily_summaries (
-    id              TEXT PRIMARY KEY,
-    user_id         TEXT NOT NULL,
-    date            TEXT NOT NULL,      -- YYYY-MM-DD
-
-    total_income    INTEGER NOT NULL DEFAULT 0,
-    total_expense   INTEGER NOT NULL DEFAULT 0,
-
-    needs_spent     INTEGER NOT NULL DEFAULT 0,
-    wants_spent     INTEGER NOT NULL DEFAULT 0,
-    savings_spent   INTEGER NOT NULL DEFAULT 0,
-
-    transaction_count INTEGER NOT NULL DEFAULT 0,
-
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE(user_id, date)
-);
-```
-
----
-
-### 7.2 monthly_summaries
-
-Pre-aggregated monthly data.
+Version stored in `app_settings`:
 
 ```sql
-CREATE TABLE monthly_summaries (
-    id              TEXT PRIMARY KEY,
-    user_id         TEXT NOT NULL,
-    year            INTEGER NOT NULL,
-    month           INTEGER NOT NULL,   -- 1-12
-
-    total_income    INTEGER NOT NULL DEFAULT 0,
-    total_expense   INTEGER NOT NULL DEFAULT 0,
-    total_savings   INTEGER NOT NULL DEFAULT 0,
-
-    needs_budget    INTEGER NOT NULL DEFAULT 0,
-    needs_spent     INTEGER NOT NULL DEFAULT 0,
-
-    wants_budget    INTEGER NOT NULL DEFAULT 0,
-    wants_spent     INTEGER NOT NULL DEFAULT 0,
-
-    savings_budget  INTEGER NOT NULL DEFAULT 0,
-    savings_spent   INTEGER NOT NULL DEFAULT 0,
-
-    -- Goals
-    goals_contributed INTEGER NOT NULL DEFAULT 0,
-    emergency_contributed INTEGER NOT NULL DEFAULT 0,
-
-    -- Debt
-    debt_paid       INTEGER NOT NULL DEFAULT 0,
-
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE(user_id, year, month)
-);
+SELECT value FROM app_settings WHERE key = 'schema_version';
 ```
 
----
+### 8.2 Migration Files
 
-### 7.3 category_summaries
-
-Per-category monthly spending.
-
-```sql
-CREATE TABLE category_summaries (
-    id              TEXT PRIMARY KEY,
-    user_id         TEXT NOT NULL,
-    category_id     TEXT NOT NULL,
-    year            INTEGER NOT NULL,
-    month           INTEGER NOT NULL,
-
-    total_amount    INTEGER NOT NULL DEFAULT 0,
-    transaction_count INTEGER NOT NULL DEFAULT 0,
-
-    budget_amount   INTEGER,            -- NULL if no budget set
-
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
-    UNIQUE(user_id, category_id, year, month)
-);
+```
+lib/core/database/
+├── database_service.dart      # Main DB wrapper
+├── migrations/
+│   ├── migration_v1.dart      # Initial schema
+│   ├── migration_v2.dart      # Future changes
+│   └── migration_runner.dart  # Runs migrations
+└── repositories/
+    ├── expense_repository.dart
+    ├── goal_repository.dart
+    ├── settings_repository.dart
+    └── ...
 ```
 
----
-
-## 8. Future-Ready Tables
-
-### 8.1 recurring_transactions
-
-For auto-logging recurring expenses/income.
-
-```sql
-CREATE TABLE recurring_transactions (
-    id                  TEXT PRIMARY KEY,
-    user_id             TEXT NOT NULL,
-
-    name                TEXT NOT NULL,
-    amount              INTEGER NOT NULL,
-    type                TEXT NOT NULL,      -- 'expense', 'income'
-
-    account_id          TEXT NOT NULL,
-    category_id         TEXT NOT NULL,
-
-    -- Recurrence pattern
-    frequency           TEXT NOT NULL,      -- 'daily', 'weekly', 'monthly', 'yearly'
-    interval            INTEGER NOT NULL DEFAULT 1,  -- Every X days/weeks/months
-    day_of_week         INTEGER,            -- 0-6 for weekly
-    day_of_month        INTEGER,            -- 1-28 for monthly
-
-    -- Duration
-    start_date          TEXT NOT NULL,
-    end_date            TEXT,               -- NULL = indefinite
-
-    -- Tracking
-    last_generated      TEXT,               -- Last date transaction was auto-created
-    next_due            TEXT,               -- Next expected date
-
-    is_active           INTEGER NOT NULL DEFAULT 1,
-
-    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
-    deleted_at          TEXT,
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
-);
-```
-
----
-
-### 8.2 sms_patterns
-
-For SMS auto-parsing (Android only).
-
-```sql
-CREATE TABLE sms_patterns (
-    id              TEXT PRIMARY KEY,
-
-    bank_name       TEXT NOT NULL,
-    sender_pattern  TEXT NOT NULL,      -- Regex for sender (e.g., 'HDFCBK', 'SBIINB')
-    message_pattern TEXT NOT NULL,      -- Regex to extract amount, type, merchant
-
-    is_active       INTEGER NOT NULL DEFAULT 1,
-    priority        INTEGER NOT NULL DEFAULT 0,  -- Higher = check first
-
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
--- Example patterns for Indian banks
-INSERT INTO sms_patterns (id, bank_name, sender_pattern, message_pattern, priority) VALUES
-('sms_hdfc', 'HDFC Bank', 'HDFCBK|HDFCBN', 'Rs\.?(\d+(?:\.\d{2})?).*(?:debited|credited)', 10),
-('sms_sbi', 'SBI', 'SBIINB|SBIPSG', 'Rs\.?(\d+(?:\.\d{2})?).*(?:debited|credited)', 10),
-('sms_icici', 'ICICI Bank', 'ICICIB', 'Rs\.?(\d+(?:\.\d{2})?).*(?:debited|credited)', 10),
-('sms_axis', 'Axis Bank', 'AXISBK', 'Rs\.?(\d+(?:\.\d{2})?).*(?:debited|credited)', 10);
-```
-
----
-
-### 8.3 notifications
-
-For reminders and alerts.
-
-```sql
-CREATE TABLE notifications (
-    id              TEXT PRIMARY KEY,
-    user_id         TEXT NOT NULL,
-
-    type            TEXT NOT NULL,      -- 'reminder', 'alert', 'insight', 'goal_reached'
-    title           TEXT NOT NULL,
-    body            TEXT NOT NULL,
-
-    -- Related entity
-    entity_type     TEXT,               -- 'goal', 'debt', 'budget', 'expense'
-    entity_id       TEXT,
-
-    -- Scheduling
-    scheduled_at    TEXT,
-    sent_at         TEXT,
-
-    -- Status
-    is_read         INTEGER NOT NULL DEFAULT 0,
-    read_at         TEXT,
-
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-```
-
----
-
-### 8.4 tags
-
-User-defined tags for transactions.
-
-```sql
-CREATE TABLE tags (
-    id              TEXT PRIMARY KEY,
-    user_id         TEXT NOT NULL,
-    name            TEXT NOT NULL,
-    color           TEXT NOT NULL DEFAULT '#757575',
-
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE(user_id, name)
-);
-
-CREATE TABLE expense_tags (
-    expense_id      TEXT NOT NULL,
-    tag_id          TEXT NOT NULL,
-
-    PRIMARY KEY (expense_id, tag_id),
-    FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-);
-```
-
----
-
-### 8.5 attachments
-
-For receipt images and documents.
-
-```sql
-CREATE TABLE attachments (
-    id              TEXT PRIMARY KEY,
-    user_id         TEXT NOT NULL,
-
-    entity_type     TEXT NOT NULL,      -- 'expense', 'goal', 'debt'
-    entity_id       TEXT NOT NULL,
-
-    file_path       TEXT NOT NULL,      -- Local path
-    file_name       TEXT NOT NULL,
-    file_type       TEXT NOT NULL,      -- 'image/jpeg', 'application/pdf'
-    file_size       INTEGER NOT NULL,   -- bytes
-
-    thumbnail_path  TEXT,
-
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-```
-
----
-
-## 9. Indexes
-
-Strategic indexes for common query patterns.
-
-```sql
--- Expenses (most queried table)
-CREATE INDEX idx_expenses_user_date ON expenses(user_id, date);
-CREATE INDEX idx_expenses_user_category ON expenses(user_id, category_id);
-CREATE INDEX idx_expenses_user_date_type ON expenses(user_id, date, type);
-CREATE INDEX idx_expenses_user_account ON expenses(user_id, account_id);
-CREATE INDEX idx_expenses_deleted ON expenses(deleted_at) WHERE deleted_at IS NULL;
-CREATE INDEX idx_expenses_recurring ON expenses(recurring_id) WHERE recurring_id IS NOT NULL;
-CREATE INDEX idx_expenses_sms_hash ON expenses(sms_hash) WHERE sms_hash IS NOT NULL;
-
--- Goals
-CREATE INDEX idx_goals_user_status ON goals(user_id, status);
-CREATE INDEX idx_goals_user_target_date ON goals(user_id, target_date);
-
--- Goal transactions
-CREATE INDEX idx_goal_transactions_goal ON goal_transactions(goal_id);
-CREATE INDEX idx_goal_transactions_date ON goal_transactions(date);
-
--- Debts
-CREATE INDEX idx_debts_user_status ON debts(user_id, status);
-CREATE INDEX idx_debts_priority ON debts(priority) WHERE status = 'active';
-
--- Categories
-CREATE INDEX idx_categories_type ON categories(type);
-CREATE INDEX idx_categories_budget_type ON categories(budget_type);
-
--- Budget cycles
-CREATE INDEX idx_budget_cycles_user_dates ON budget_cycles(user_id, start_date, end_date);
-CREATE INDEX idx_budget_cycles_active ON budget_cycles(user_id, status) WHERE status = 'active';
-
--- Daily summaries
-CREATE INDEX idx_daily_summaries_user_date ON daily_summaries(user_id, date);
-
--- Monthly summaries
-CREATE INDEX idx_monthly_summaries_user_period ON monthly_summaries(user_id, year, month);
-
--- Recurring transactions
-CREATE INDEX idx_recurring_next_due ON recurring_transactions(next_due) WHERE is_active = 1;
-
--- Notifications
-CREATE INDEX idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = 0;
-CREATE INDEX idx_notifications_scheduled ON notifications(scheduled_at) WHERE sent_at IS NULL;
-```
-
----
-
-## 10. Migrations Strategy
-
-### 10.1 Version Table
-
-```sql
-CREATE TABLE schema_migrations (
-    version         INTEGER PRIMARY KEY,
-    name            TEXT NOT NULL,
-    applied_at      TEXT NOT NULL DEFAULT (datetime('now'))
-);
-```
-
-### 10.2 Migration Pattern
+### 8.3 Migration Pattern
 
 ```dart
-// lib/core/database/migrations/migration_v1.dart
+abstract class Migration {
+  int get version;
+  Future<void> up(Database db);
+  Future<void> down(Database db);  // For rollback
+}
+
 class MigrationV1 implements Migration {
   @override
   int get version => 1;
 
   @override
-  String get name => 'initial_schema';
-
-  @override
   Future<void> up(Database db) async {
-    // Create tables
+    // Create all tables from Section 4
   }
 
   @override
   Future<void> down(Database db) async {
-    // Drop tables (for rollback)
-  }
-}
-```
-
-### 10.3 Migration Checklist
-
-When adding new features:
-
-- [ ] Create new migration file with incremented version
-- [ ] Add new tables/columns in `up()` method
-- [ ] Add rollback logic in `down()` method
-- [ ] Test migration on existing data
-- [ ] Update DATABASE.md with new schema
-- [ ] Update APP_OVERVIEW.md
-
----
-
-## 11. Data Validation Rules
-
-### 11.1 Constraints
-
-| Table | Column | Rule |
-|-------|--------|------|
-| expenses | amount | Must be > 0 |
-| expenses | date | Must be valid ISO date |
-| goals | target_amount | Must be > 0 |
-| goals | target_date | Must be in future |
-| debts | interest_rate | Must be >= 0 and <= 100 |
-| user_settings | needs + wants + savings | Must equal 100 |
-| budget_cycles | end_date | Must be > start_date |
-
-### 11.2 Application-Level Validation
-
-```dart
-// lib/core/validators/expense_validator.dart
-class ExpenseValidator {
-  static ValidationResult validate(Expense expense) {
-    final errors = <String>[];
-
-    if (expense.amount <= 0) {
-      errors.add('Amount must be greater than 0');
-    }
-
-    if (expense.date.isAfter(DateTime.now().add(Duration(days: 1)))) {
-      errors.add('Cannot add expense for future dates');
-    }
-
-    if (expense.category == ExpenseCategory.savings &&
-        expense.goalId == null &&
-        expense.savingsDestination != SavingsDestination.emergencyFund) {
-      errors.add('Savings must have a destination');
-    }
-
-    return ValidationResult(isValid: errors.isEmpty, errors: errors);
+    // Drop all tables
   }
 }
 ```
 
 ---
 
-## 12. Query Patterns
+## 9. Dart Models
 
-### 12.1 Common Queries
+### 9.1 Model Conventions
 
-**Get daily budget status:**
-```sql
-SELECT
-    bc.total_budget,
-    bc.total_spent,
-    (bc.total_budget - bc.total_spent) as remaining,
-    (julianday(bc.end_date) - julianday('now') + 1) as days_left,
-    CASE
-        WHEN days_left > 0 THEN (bc.total_budget - bc.total_spent) / days_left
-        ELSE 0
-    END as daily_allowance
-FROM budget_cycles bc
-WHERE bc.user_id = ?
-AND bc.status = 'active'
-AND date('now') BETWEEN bc.start_date AND bc.end_date;
-```
-
-**Get expenses for date range with category:**
-```sql
-SELECT
-    e.*,
-    c.name as category_name,
-    c.budget_type
-FROM expenses e
-JOIN categories c ON e.category_id = c.id
-WHERE e.user_id = ?
-AND e.date BETWEEN ? AND ?
-AND e.deleted_at IS NULL
-ORDER BY e.date DESC, e.created_at DESC;
-```
-
-**Get goal progress:**
-```sql
-SELECT
-    g.*,
-    (g.current_amount * 100.0 / g.target_amount) as progress_percent,
-    (g.target_amount - g.current_amount) as remaining,
-    CASE
-        WHEN julianday(g.target_date) > julianday('now')
-        THEN (g.target_amount - g.current_amount) /
-             ((julianday(g.target_date) - julianday('now')) / 30.0)
-        ELSE g.target_amount - g.current_amount
-    END as monthly_needed
-FROM goals g
-WHERE g.user_id = ?
-AND g.status = 'active'
-AND g.deleted_at IS NULL
-ORDER BY g.priority DESC, g.target_date ASC;
-```
-
-**Get 50-30-20 breakdown for current cycle:**
-```sql
-SELECT
-    c.budget_type,
-    SUM(e.amount) as total_spent,
-    bc.needs_budget as needs_budget,
-    bc.wants_budget as wants_budget,
-    bc.savings_budget as savings_budget
-FROM expenses e
-JOIN categories c ON e.category_id = c.id
-JOIN budget_cycles bc ON e.user_id = bc.user_id
-    AND e.date BETWEEN bc.start_date AND bc.end_date
-WHERE e.user_id = ?
-AND bc.status = 'active'
-AND e.type = 'expense'
-AND e.deleted_at IS NULL
-GROUP BY c.budget_type;
-```
-
----
-
-## 13. Backup & Recovery
-
-### 13.1 Backup Strategy
+All models should have:
 
 ```dart
-// lib/core/services/backup_service.dart
-class BackupService {
-  // Export all data to JSON
-  Future<String> exportToJson() async {
-    final data = {
-      'version': schemaVersion,
-      'exported_at': DateTime.now().toIso8601String(),
-      'users': await _exportTable('users'),
-      'accounts': await _exportTable('accounts'),
-      'categories': await _exportTable('categories'),
-      'expenses': await _exportTable('expenses'),
-      'goals': await _exportTable('goals'),
-      'debts': await _exportTable('debts'),
-      // ... all tables
-    };
-    return jsonEncode(data);
-  }
-
-  // Import from JSON backup
-  Future<void> importFromJson(String json) async {
-    final data = jsonDecode(json);
-    // Validate version compatibility
-    // Import in correct order (respecting foreign keys)
-  }
-}
-```
-
-### 13.2 Data Recovery
-
-```sql
--- Recover soft-deleted expenses from last 30 days
-UPDATE expenses
-SET deleted_at = NULL
-WHERE deleted_at > datetime('now', '-30 days');
-
--- Recalculate goal amounts from transactions
-UPDATE goals
-SET current_amount = (
-    SELECT COALESCE(SUM(amount), 0)
-    FROM goal_transactions
-    WHERE goal_id = goals.id
-);
-
--- Recalculate emergency fund from transactions
-UPDATE emergency_fund
-SET current_amount = (
-    SELECT COALESCE(SUM(amount), 0)
-    FROM emergency_fund_transactions
-    WHERE fund_id = emergency_fund.id
-);
-```
-
----
-
-## 14. Budget History Feature
-
-The Budget History feature allows users to view past months' reports (up to 2 years).
-
-### 14.1 Data Source
-
-Budget history is derived from the `monthly_summaries` table (Section 7.2).
-
-### 14.2 Budget History Query
-
-**Get all months for history (last 2 years):**
-```sql
-SELECT
-    ms.year,
-    ms.month,
-    ms.total_expense as total_spent,
-    (ms.needs_budget + ms.wants_budget + ms.savings_budget) as total_budget,
-    ((ms.needs_budget + ms.wants_budget + ms.savings_budget) - ms.total_expense) as remaining,
-    ms.needs_budget,
-    ms.needs_spent,
-    ms.wants_budget,
-    ms.wants_spent,
-    ms.savings_budget,
-    ms.savings_spent
-FROM monthly_summaries ms
-WHERE ms.user_id = ?
-AND (ms.year * 12 + ms.month) >= ((strftime('%Y', 'now') * 12 + strftime('%m', 'now')) - 24)
-ORDER BY ms.year DESC, ms.month DESC;
-```
-
-**Get detailed breakdown for a specific month:**
-```sql
-SELECT
-    c.budget_type,
-    c.name as category_name,
-    SUM(e.amount) as amount_spent,
-    COUNT(e.id) as transaction_count
-FROM expenses e
-JOIN categories c ON e.category_id = c.id
-WHERE e.user_id = ?
-AND strftime('%Y', e.date) = ?
-AND strftime('%m', e.date) = ?
-AND e.type = 'expense'
-AND e.deleted_at IS NULL
-GROUP BY c.budget_type, c.id
-ORDER BY c.budget_type, amount_spent DESC;
-```
-
-### 14.3 MonthlyBudgetSummary Model
-
-```dart
-/// Used by Budget History screens
-class MonthlyBudgetSummary {
-  final int year;
-  final int month;
-  final String monthName;
-  final double totalBudget;
-  final double totalSpent;
-  final double remaining;
-
-  // Optional: detailed breakdown
-  final double? needsBudget;
-  final double? needsSpent;
-  final double? wantsBudget;
-  final double? wantsSpent;
-  final double? savingsBudget;
-  final double? savingsSpent;
-}
-```
-
----
-
-## 15. Features Without Database Storage
-
-Some features use hardcoded data and don't require database tables.
-
-### 15.1 Financial Literacy (Learn Feature)
-
-The Learn feature provides educational content that is hardcoded in the app.
-
-**Why Hardcoded:**
-- Content doesn't change per user
-- No personalization needed
-- Reduces complexity (no content sync)
-- Works completely offline
-- Faster loading (no database queries)
-
-**Data Location:** `lib/features/learn/data/lessons_data.dart`
-
-**Data Structure:**
-```dart
-class Lesson {
+class MyModel {
+  // Properties
   final String id;
-  final String title;
-  final String subtitle;
-  final String icon;
-  final List<LessonSection> sections;
-}
+  // ...
 
-class LessonSection {
-  final String? title;
-  final String content;
-  final LessonSectionType type;  // paragraph, highlight, bulletList, quote, keyTakeaway
-  final List<String>? bulletPoints;
+  // Constructor
+  const MyModel({required this.id, ...});
+
+  // From database
+  factory MyModel.fromMap(Map<String, dynamic> map);
+
+  // To database
+  Map<String, dynamic> toMap();
+
+  // Copy with
+  MyModel copyWith({...});
 }
 ```
 
-**10 Lessons Included:**
-| # | Lesson ID | Title |
-|---|-----------|-------|
-| 1 | why-finance-matters | Why Personal Finance Matters |
-| 2 | 50-30-20-rule | The 50-30-20 Rule |
-| 3 | emergency-fund | Emergency Fund |
-| 4 | compound-interest | The Power of Compound Interest |
-| 5 | good-vs-bad-debt | Good Debt vs Bad Debt |
-| 6 | pay-yourself-first | Pay Yourself First |
-| 7 | budgeting-basics | Budgeting Basics |
-| 8 | financial-goals | Setting Financial Goals |
-| 9 | lifestyle-inflation | Avoiding Lifestyle Inflation |
-| 10 | building-wealth | Building Long-term Wealth |
-
-### 15.2 App Knowledge (How It Works)
-
-The Knowledge screen explaining app logic is also hardcoded.
-
-**Data Location:** `lib/features/profile/screens/knowledge_screen.dart`
-
-**Content Sections:**
-- The Philosophy
-- The Math (4 steps)
-- Two Numbers (Planned vs Available)
-- Example calculation
-- Three Buckets (Needs, Wants, Savings)
-
----
-
-## Appendix A: Quick Reference
-
-### Tables Overview
-
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| users | User profiles | id, name, currency_code |
-| accounts | Bank/wallet accounts | id, user_id, type, balance |
-| categories | Expense categories | id, name, type, budget_type |
-| expenses | All transactions | id, amount, category_id, date |
-| goals | Savings goals | id, target_amount, current_amount |
-| goal_transactions | Goal contributions | id, goal_id, amount |
-| emergency_fund | Safety net | id, current_amount, target_months |
-| emergency_fund_transactions | Fund contributions | id, fund_id, amount |
-| debts | Debt tracking | id, remaining_amount, interest_rate |
-| debt_payments | Debt payments | id, debt_id, amount, principal |
-| user_settings | Preferences | user_id, key, value |
-| budget_cycles | Budget periods | start_date, end_date, budgets |
-| daily_summaries | Daily aggregates | user_id, date, totals |
-| monthly_summaries | Monthly aggregates (Budget History) | user_id, year, month, budgets, spent |
-| category_summaries | Per-category monthly | user_id, category_id, year, month |
-| financial_plan_progress | 10-step plan tracking | user_id, step, status |
-
-### Amount Conversion
+### 9.2 Amount Conversion Mixin
 
 ```dart
-// To database (display → storage)
-int toPaise(double amount) => (amount * 100).round();
+mixin AmountConversion {
+  // Display (double) to Storage (int paise)
+  static int toPaise(double amount) => (amount * 100).round();
 
-// From database (storage → display)
-double fromPaise(int paise) => paise / 100.0;
+  // Storage (int paise) to Display (double)
+  static double toRupees(int paise) => paise / 100.0;
+}
 ```
 
-### Common Types
+### 9.3 Expense Model (Updated)
 
 ```dart
-enum ExpenseType { expense, income, transfer }
-enum BudgetType { needs, wants, savings }
-enum GoalStatus { active, completed, paused, cancelled }
-enum DebtPriority { high, medium, low }
-enum CycleType { calendarMonth, customDay }
+class Expense with AmountConversion {
+  final String id;
+  final int amount;  // In paise
+  final ExpenseCategory category;
+  final String subcategory;
+  final String? goalId;
+  final bool isFundContribution;
+  final DateTime date;
+  final String? note;
+  final DateTime createdAt;
+  final DateTime? deletedAt;
+
+  // Display amount in rupees
+  double get displayAmount => AmountConversion.toRupees(amount);
+
+  factory Expense.fromMap(Map<String, dynamic> map) {
+    return Expense(
+      id: map['id'],
+      amount: map['amount'],
+      category: ExpenseCategory.values.byName(map['category']),
+      subcategory: map['subcategory'],
+      goalId: map['goal_id'],
+      isFundContribution: map['is_fund_contribution'] == 1,
+      date: DateTime.parse(map['date']),
+      note: map['note'],
+      createdAt: DateTime.parse(map['created_at']),
+      deletedAt: map['deleted_at'] != null
+          ? DateTime.parse(map['deleted_at'])
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'amount': amount,
+      'category': category.name,
+      'subcategory': subcategory,
+      'goal_id': goalId,
+      'is_fund_contribution': isFundContribution ? 1 : 0,
+      'date': date.toIso8601String().split('T')[0],
+      'note': note,
+      'created_at': createdAt.toIso8601String(),
+      'deleted_at': deletedAt?.toIso8601String(),
+    };
+  }
+}
+```
+
+### 9.4 Subcategory Mapping
+
+```dart
+extension SubcategoryMapping on ExpenseSubcategory {
+  String get dbValue {
+    switch (this) {
+      case ExpenseSubcategory.rentEmi: return 'rent_emi';
+      case ExpenseSubcategory.utilitiesBills: return 'utilities';
+      case ExpenseSubcategory.otherFixed: return 'other_fixed';
+      case ExpenseSubcategory.foodDining: return 'food';
+      case ExpenseSubcategory.transport: return 'transport';
+      case ExpenseSubcategory.healthWellness: return 'health';
+      case ExpenseSubcategory.shopping: return 'shopping';
+      case ExpenseSubcategory.entertainment: return 'entertainment';
+      case ExpenseSubcategory.otherVariable: return 'other';
+    }
+  }
+
+  static ExpenseSubcategory fromDbValue(String value) {
+    switch (value) {
+      case 'rent_emi': return ExpenseSubcategory.rentEmi;
+      case 'utilities': return ExpenseSubcategory.utilitiesBills;
+      case 'other_fixed': return ExpenseSubcategory.otherFixed;
+      case 'food': return ExpenseSubcategory.foodDining;
+      case 'transport': return ExpenseSubcategory.transport;
+      case 'health': return ExpenseSubcategory.healthWellness;
+      case 'shopping': return ExpenseSubcategory.shopping;
+      case 'entertainment': return ExpenseSubcategory.entertainment;
+      case 'other': return ExpenseSubcategory.otherVariable;
+      default: throw ArgumentError('Unknown subcategory: $value');
+    }
+  }
+}
 ```
 
 ---
 
-## Appendix B: Schema Version History
+## Appendix A: Full Schema SQL
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1 | Jan 2026 | Initial schema |
-| 1.1 | Jan 2026 | Added Budget History queries, documented Learn feature (hardcoded) |
+```sql
+-- ============================================
+-- FINANCESENSEI DATABASE SCHEMA v1
+-- Run this to create all tables
+-- ============================================
+
+PRAGMA foreign_keys = ON;
+PRAGMA journal_mode = WAL;
+
+-- Settings
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Expenses
+CREATE TABLE IF NOT EXISTS expenses (
+    id TEXT PRIMARY KEY,
+    amount INTEGER NOT NULL CHECK (amount > 0),
+    category TEXT NOT NULL CHECK (category IN ('needs', 'wants', 'savings')),
+    subcategory TEXT NOT NULL,
+    goal_id TEXT,
+    is_fund_contribution INTEGER NOT NULL DEFAULT 0,
+    date TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at TEXT,
+    FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE SET NULL
+);
+
+-- Goals
+CREATE TABLE IF NOT EXISTS goals (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    target_amount INTEGER NOT NULL CHECK (target_amount > 0),
+    current_amount INTEGER NOT NULL DEFAULT 0,
+    target_date TEXT NOT NULL,
+    instrument TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    completed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at TEXT
+);
+
+-- Goal Contributions
+CREATE TABLE IF NOT EXISTS goal_contributions (
+    id TEXT PRIMARY KEY,
+    goal_id TEXT NOT NULL,
+    expense_id TEXT,
+    amount INTEGER NOT NULL,
+    type TEXT NOT NULL DEFAULT 'contribution',
+    date TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE,
+    FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE SET NULL
+);
+
+-- Emergency Fund
+CREATE TABLE IF NOT EXISTS emergency_fund (
+    id TEXT PRIMARY KEY DEFAULT 'default_fund',
+    current_amount INTEGER NOT NULL DEFAULT 0,
+    target_months INTEGER NOT NULL DEFAULT 6,
+    monthly_essentials INTEGER NOT NULL DEFAULT 0,
+    instrument TEXT NOT NULL DEFAULT 'savings_account',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Fund Contributions
+CREATE TABLE IF NOT EXISTS fund_contributions (
+    id TEXT PRIMARY KEY,
+    fund_id TEXT NOT NULL DEFAULT 'default_fund',
+    expense_id TEXT,
+    amount INTEGER NOT NULL,
+    type TEXT NOT NULL DEFAULT 'contribution',
+    date TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (fund_id) REFERENCES emergency_fund(id) ON DELETE CASCADE,
+    FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE SET NULL
+);
+
+-- Debts
+CREATE TABLE IF NOT EXISTS debts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    lender TEXT,
+    total_amount INTEGER NOT NULL CHECK (total_amount > 0),
+    remaining_amount INTEGER NOT NULL CHECK (remaining_amount >= 0),
+    interest_rate REAL NOT NULL CHECK (interest_rate >= 0),
+    minimum_payment INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active',
+    paid_off_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at TEXT
+);
+
+-- Debt Payments
+CREATE TABLE IF NOT EXISTS debt_payments (
+    id TEXT PRIMARY KEY,
+    debt_id TEXT NOT NULL,
+    expense_id TEXT,
+    amount INTEGER NOT NULL CHECK (amount > 0),
+    date TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (debt_id) REFERENCES debts(id) ON DELETE CASCADE,
+    FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE SET NULL
+);
+
+-- Monthly Snapshots
+CREATE TABLE IF NOT EXISTS monthly_snapshots (
+    id TEXT PRIMARY KEY,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
+    total_budget INTEGER NOT NULL DEFAULT 0,
+    needs_budget INTEGER NOT NULL DEFAULT 0,
+    wants_budget INTEGER NOT NULL DEFAULT 0,
+    savings_budget INTEGER NOT NULL DEFAULT 0,
+    total_spent INTEGER NOT NULL DEFAULT 0,
+    needs_spent INTEGER NOT NULL DEFAULT 0,
+    wants_spent INTEGER NOT NULL DEFAULT 0,
+    savings_spent INTEGER NOT NULL DEFAULT 0,
+    remaining INTEGER NOT NULL DEFAULT 0,
+    transaction_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(year, month)
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_debts_status ON debts(status) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_snapshots_date ON monthly_snapshots(year DESC, month DESC);
+
+-- Default data (all values as plain TEXT, not JSON)
+INSERT OR IGNORE INTO app_settings (key, value) VALUES
+    ('monthly_income', '0'),
+    ('fixed_expenses_rent', '0'),
+    ('fixed_expenses_utilities', '0'),
+    ('fixed_expenses_other', '0'),
+    ('needs_percent', '50'),
+    ('wants_percent', '30'),
+    ('savings_percent', '20'),
+    ('cycle_type', 'calendar'),
+    ('cycle_start_day', '1'),
+    ('onboarding_complete', 'false'),
+    ('app_first_launch', ''),
+    ('schema_version', '1');
+
+INSERT OR IGNORE INTO emergency_fund (id) VALUES ('default_fund');
+```
 
 ---
 
-## Appendix C: Feature to Table Mapping
+## Appendix B: Features Not Requiring Database
 
-| Feature | Primary Table(s) | Notes |
-|---------|------------------|-------|
-| Home Screen | expenses, budget_cycles | Daily spending view |
-| Add Expense | expenses, categories | Transaction logging |
-| Monthly Budget | budget_cycles, expenses | 50-30-20 breakdown |
-| Budget History | monthly_summaries | Past months reports |
-| All Expenses | expenses, categories | Filtered expense list |
-| Safety Tab | emergency_fund, emergency_fund_transactions | Emergency fund tracking |
-| Goals Tab | goals, goal_transactions | Savings goals |
-| Debt Screen | debts, debt_payments | Debt management |
-| Financial Plan | financial_plan_progress | 10-step tracking |
-| Profile/Settings | user_settings | User preferences |
-| Learn (Financial Literacy) | *None (hardcoded)* | Educational content |
-| How It Works | *None (hardcoded)* | App explanation |
+| Feature | Storage | Reason |
+|---------|---------|--------|
+| Financial Literacy (Learn) | Hardcoded in `lessons_data.dart` | Static educational content |
+| How It Works (Knowledge) | Hardcoded in widget | Static app explanation |
+| Theme/UI preferences | SharedPreferences | Simple key-value, not relational |
 
 ---
 
-*This document must be updated whenever database schema changes are made.*
+## Appendix C: Future Enhancements (Not in v1)
+
+When needed, these can be added:
+
+| Feature | Table(s) Needed |
+|---------|-----------------|
+| Multi-account | accounts, expense.account_id |
+| Recurring transactions | recurring_rules |
+| SMS auto-import | sms_patterns, expense.sms_hash |
+| Custom categories | categories (replace enums) |
+| Tags | tags, expense_tags |
+| Attachments/receipts | attachments |
+| Multiple users | users, all tables get user_id |
+
+---
+
+*This document is the source of truth for database design. Update when schema changes.*

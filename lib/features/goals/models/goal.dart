@@ -194,27 +194,58 @@ class Goal {
     );
   }
 
+  /// Convert to database map (amounts in paise).
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
-      'targetAmount': targetAmount,
-      'currentAmount': currentAmount,
-      'targetDate': targetDate.toIso8601String(),
-      'instrument': instrument.index,
-      'createdAt': createdAt.toIso8601String(),
+      'target_amount': (targetAmount * 100).round(),
+      'current_amount': (currentAmount * 100).round(),
+      'target_date': targetDate.toIso8601String().split('T')[0],
+      'instrument': instrument.name,
+      'status': isCompleted ? 'completed' : 'active',
+      'created_at': createdAt.toIso8601String(),
     };
   }
 
+  /// Create from database map (amounts in paise).
   factory Goal.fromMap(Map<String, dynamic> map) {
+    // Handle both camelCase (old) and snake_case (new) keys
+    final targetAmount = map['target_amount'] ?? map['targetAmount'];
+    final currentAmount = map['current_amount'] ?? map['currentAmount'];
+    final targetDate = map['target_date'] ?? map['targetDate'];
+    final createdAt = map['created_at'] ?? map['createdAt'];
+    final instrumentValue = map['instrument'];
+
+    // Parse instrument - handle both index and name formats
+    SavingsInstrument instrument;
+    if (instrumentValue is int) {
+      instrument = SavingsInstrument.values[instrumentValue];
+    } else if (instrumentValue is String) {
+      instrument = SavingsInstrument.values.firstWhere(
+        (i) => i.name == instrumentValue,
+        orElse: () => SavingsInstrument.savingsAccount,
+      );
+    } else {
+      instrument = SavingsInstrument.savingsAccount;
+    }
+
+    // Parse amounts - handle both int (paise) and double
+    double parseAmount(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value / 100.0;
+      if (value is double) return value;
+      return 0;
+    }
+
     return Goal(
       id: map['id'] as String,
       name: map['name'] as String,
-      targetAmount: map['targetAmount'] as double,
-      currentAmount: (map['currentAmount'] as double?) ?? 0,
-      targetDate: DateTime.parse(map['targetDate'] as String),
-      instrument: SavingsInstrument.values[map['instrument'] as int],
-      createdAt: DateTime.parse(map['createdAt'] as String),
+      targetAmount: parseAmount(targetAmount),
+      currentAmount: parseAmount(currentAmount),
+      targetDate: DateTime.parse(targetDate as String),
+      instrument: instrument,
+      createdAt: DateTime.parse(createdAt as String),
     );
   }
 

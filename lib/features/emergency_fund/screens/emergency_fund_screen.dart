@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/app_card.dart';
@@ -8,42 +9,92 @@ import 'add_fund_screen.dart';
 /// Emergency Fund screen - the Safety tab.
 /// Shows runway and progress towards emergency fund goal.
 /// Clean, focused on the key metric: months of safety.
-class EmergencyFundScreen extends StatelessWidget {
+class EmergencyFundScreen extends StatefulWidget {
   const EmergencyFundScreen({super.key});
+
+  @override
+  State<EmergencyFundScreen> createState() => _EmergencyFundScreenState();
+}
+
+class _EmergencyFundScreenState extends State<EmergencyFundScreen> {
+  final EmergencyFundRepository _fundRepo = EmergencyFundRepository();
+  final SettingsRepository _settingsRepo = SettingsRepository();
+
+  // Loaded from database
+  int _currentAmount = 0;
+  int _targetMonths = 6;
+  int _monthlyEssentials = 0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final currentAmount = await _fundRepo.getCurrentAmount();
+    final targetMonths = await _fundRepo.getTargetMonths();
+    final monthlyEssentials = await _settingsRepo.calculateMonthlyEssentials();
+
+    // Sync monthly essentials to fund
+    await _fundRepo.syncMonthlyEssentials(monthlyEssentials);
+
+    if (mounted) {
+      setState(() {
+        _currentAmount = currentAmount;
+        _targetMonths = targetMonths;
+        _monthlyEssentials = monthlyEssentials;
+        _isLoading = false;
+      });
+    }
+  }
+
+  int get _targetAmount => _monthlyEssentials * _targetMonths;
+  double get _runway =>
+      _monthlyEssentials > 0 ? _currentAmount / _monthlyEssentials : 0;
+  double get _progress =>
+      _targetAmount > 0 ? (_currentAmount / _targetAmount * 100).clamp(0, 100) : 0;
+  int get _remaining => (_targetAmount - _currentAmount).clamp(0, _targetAmount);
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: AppTheme.spacing24),
-            Text(
-              'Safety',
-              style: Theme.of(context).textTheme.headlineMedium,
+      child: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppTheme.black,
+              ),
+            )
+          : SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: AppTheme.spacing24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: AppTheme.spacing24),
+                  Text(
+                    'Safety',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: AppTheme.spacing32),
+                  _buildRunwayCard(context),
+                  const SizedBox(height: AppTheme.spacing24),
+                  _buildProgressCard(context),
+                  const SizedBox(height: AppTheme.spacing24),
+                  _buildDetailsCard(context),
+                  const SizedBox(height: AppTheme.spacing32),
+                  _buildAddButton(context),
+                  const SizedBox(height: AppTheme.spacing64),
+                ],
+              ),
             ),
-            const SizedBox(height: AppTheme.spacing32),
-            _buildRunwayCard(context),
-            const SizedBox(height: AppTheme.spacing24),
-            _buildProgressCard(context),
-            const SizedBox(height: AppTheme.spacing24),
-            _buildDetailsCard(context),
-            const SizedBox(height: AppTheme.spacing32),
-            _buildAddButton(context),
-            const SizedBox(height: AppTheme.spacing64),
-          ],
-        ),
-      ),
     );
   }
 
   Widget _buildRunwayCard(BuildContext context) {
-    // Placeholder values - will come from database
-    const runway = 2.3;
-
     return AppCard(
       padding: const EdgeInsets.all(AppTheme.spacing24),
       child: Column(
@@ -55,7 +106,7 @@ class EmergencyFundScreen extends StatelessWidget {
           ),
           const SizedBox(height: AppTheme.spacing8),
           Text(
-            Formatters.months(runway),
+            Formatters.months(_runway),
             style: Theme.of(context).textTheme.displayMedium,
           ),
           const SizedBox(height: AppTheme.spacing4),
@@ -69,11 +120,6 @@ class EmergencyFundScreen extends StatelessWidget {
   }
 
   Widget _buildProgressCard(BuildContext context) {
-    // Placeholder values
-    const progress = 38.0;
-    const current = 75000.0;
-    const target = 200000.0;
-
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -86,23 +132,25 @@ class EmergencyFundScreen extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               Text(
-                Formatters.percentage(progress),
+                Formatters.percentage(_progress),
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ],
           ),
           const SizedBox(height: AppTheme.spacing16),
-          const ProgressBar(progress: progress),
+          ProgressBar(progress: _progress),
           const SizedBox(height: AppTheme.spacing16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                Formatters.currencyCompact(current),
+                Formatters.currencyCompact(
+                    AmountConverter.toRupees(_currentAmount)),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               Text(
-                Formatters.currencyCompact(target),
+                Formatters.currencyCompact(
+                    AmountConverter.toRupees(_targetAmount)),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
@@ -113,32 +161,26 @@ class EmergencyFundScreen extends StatelessWidget {
   }
 
   Widget _buildDetailsCard(BuildContext context) {
-    // Placeholder values
-    const targetMonths = 6;
-    const monthlyExpenses = 33000.0;
-    const target = 200000.0;
-    const remaining = 125000.0;
-
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildDetailRow(
             context,
-            'Target ($targetMonths months)',
-            Formatters.currency(target),
+            'Target ($_targetMonths months)',
+            Formatters.currency(AmountConverter.toRupees(_targetAmount)),
           ),
           const Divider(height: AppTheme.spacing24),
           _buildDetailRow(
             context,
             'Monthly essentials',
-            Formatters.currency(monthlyExpenses),
+            Formatters.currency(AmountConverter.toRupees(_monthlyEssentials)),
           ),
           const Divider(height: AppTheme.spacing24),
           _buildDetailRow(
             context,
             'Still needed',
-            Formatters.currency(remaining),
+            Formatters.currency(AmountConverter.toRupees(_remaining)),
             bold: true,
           ),
           const SizedBox(height: AppTheme.spacing16),
@@ -150,11 +192,12 @@ class EmergencyFundScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline, size: 16, color: AppTheme.gray600),
+                const Icon(Icons.info_outline,
+                    size: 16, color: AppTheme.gray600),
                 const SizedBox(width: AppTheme.spacing8),
                 Expanded(
                   child: Text(
-                    'Based on ${Formatters.currency(monthlyExpenses)}/month essential expenses x $targetMonths months',
+                    'Based on ${Formatters.currency(AmountConverter.toRupees(_monthlyEssentials))}/month essential expenses x $_targetMonths months',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppTheme.gray600,
                         ),
@@ -168,7 +211,8 @@ class EmergencyFundScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(BuildContext context, String label, String value, {bool bold = false}) {
+  Widget _buildDetailRow(BuildContext context, String label, String value,
+      {bool bold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -204,14 +248,23 @@ class EmergencyFundScreen extends StatelessWidget {
     );
 
     if (result != null && context.mounted) {
-      // TODO: Save to database when implemented
       final amount = result['amount'] as double;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Added ${Formatters.currency(amount)} to emergency fund'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+
+      // Add contribution to database
+      await _fundRepo.addContribution(amount: amount);
+
+      // Reload data
+      await _loadData();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Added ${Formatters.currency(amount)} to emergency fund'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 }
