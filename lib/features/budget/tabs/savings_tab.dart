@@ -1,0 +1,249 @@
+import 'package:flutter/material.dart';
+import '../sheets/add_savings_sheet.dart';
+import '../screens/category_management_screen.dart';
+
+class SavingsTab extends StatelessWidget {
+  final VoidCallback onMenuTap;
+
+  const SavingsTab({super.key, required this.onMenuTap});
+
+  final List<Map<String, dynamic>> _goals = const [
+    {'name': 'Emergency Fund', 'thisMonth': 400, 'total': 4800, 'icon': Icons.shield_outlined},
+    {'name': 'Vacation', 'thisMonth': 150, 'total': 900, 'icon': Icons.flight_outlined},
+    {'name': 'Retirement', 'thisMonth': 100, 'total': 2400, 'icon': Icons.trending_up_outlined},
+    {'name': 'New Car', 'thisMonth': 0, 'total': 0, 'icon': Icons.directions_car_outlined},
+    {'name': 'Education', 'thisMonth': 0, 'total': 0, 'icon': Icons.school_outlined},
+    {'name': 'Investments', 'thisMonth': 0, 'total': 0, 'icon': Icons.show_chart_outlined},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F7),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Container(
+              color: const Color(0xFFF2F2F7),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: onMenuTap,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(Icons.menu, size: 20, color: Colors.black),
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => const AddSavingsSheet(),
+                      );
+                    },
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(Icons.add, size: 20, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Content
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  // Title Card
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Savings',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          '₹650 this month',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Color(0xFF8E8E93),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            const Text(
+                              'Building your future, one step at a time',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF8E8E93),
+                              ),
+                            ),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const CategoryManagementScreen(
+                                      type: 'savings',
+                                      title: 'Savings Goals',
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                'Edit',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF007AFF),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Goals Grid
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 0.95,
+                    ),
+                    itemCount: _goals.length,
+                    itemBuilder: (context, index) {
+                      final goal = _goals[index];
+                      return _SavingsCard(
+                        name: goal['name'],
+                        thisMonth: goal['thisMonth'],
+                        total: goal['total'],
+                        icon: goal['icon'],
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SavingsCard extends StatelessWidget {
+  final String name;
+  final int thisMonth;
+  final int total;
+  final IconData icon;
+
+  const _SavingsCard({
+    required this.name,
+    required this.thisMonth,
+    required this.total,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasActivity = total > 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: hasActivity ? const Color(0xFFE8F5E9) : const Color(0xFFF2F2F7),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              size: 22,
+              color: hasActivity ? const Color(0xFF34C759) : Colors.black,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            name,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: Colors.black,
+            ),
+          ),
+          const SizedBox(height: 4),
+          if (hasActivity) ...[
+            Text(
+              '₹$total',
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF34C759),
+              ),
+            ),
+            Text(
+              '+₹$thisMonth this month',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF8E8E93),
+              ),
+            ),
+          ] else
+            const Text(
+              'No savings yet',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFFC7C7CC),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
