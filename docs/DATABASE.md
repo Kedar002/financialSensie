@@ -367,3 +367,65 @@ CREATE TABLE wants_template_items (
   FOREIGN KEY (template_id) REFERENCES wants_templates (id) ON DELETE CASCADE
 );
 ```
+
+---
+
+## Expenses Tables
+
+### expenses
+
+Stores all expense and income transactions.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier |
+| amount | INTEGER | NOT NULL | Amount in smallest currency unit (paise) |
+| type | TEXT | NOT NULL | Type: 'needs', 'wants', 'savings', or 'income' |
+| category_id | INTEGER | NULLABLE | Reference to category table (based on type) |
+| category_name | TEXT | NOT NULL | Category name for display |
+| note | TEXT | NULLABLE | Optional note for the transaction |
+| date | TEXT | NOT NULL | ISO 8601 transaction date |
+| created_at | TEXT | NOT NULL | ISO 8601 timestamp |
+
+**Example:**
+```sql
+INSERT INTO expenses (amount, type, category_id, category_name, note, date, created_at)
+VALUES (45000, 'needs', 1, 'Groceries', 'Weekly shopping', '2025-01-31T10:00:00.000Z', '2025-01-31T10:00:00.000Z');
+```
+
+---
+
+## Expense Repository Methods
+
+### ExpenseRepository
+
+| Method | Description |
+|--------|-------------|
+| `getAll()` | Returns all expenses ordered by date DESC |
+| `getById(int id)` | Returns single expense by ID |
+| `getByDateRange(DateTime start, DateTime end)` | Returns expenses within date range |
+| `getByMonth(int year, int month)` | Returns expenses for a specific month |
+| `getRecent({int limit})` | Returns most recent expenses (default 5) |
+| `insert(Expense)` | Creates new expense, returns ID |
+| `update(Expense)` | Updates existing expense |
+| `delete(int id)` | Deletes expense by ID |
+| `getTotalIncome({DateTime? start, DateTime? end})` | Returns sum of income |
+| `getTotalSpent({DateTime? start, DateTime? end})` | Returns sum of expenses |
+| `getSpentByType({DateTime? start, DateTime? end})` | Returns spending breakdown by type |
+
+---
+
+### Version 6 (Expenses)
+
+```sql
+CREATE TABLE expenses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  amount INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  category_id INTEGER,
+  category_name TEXT NOT NULL,
+  note TEXT,
+  date TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+```

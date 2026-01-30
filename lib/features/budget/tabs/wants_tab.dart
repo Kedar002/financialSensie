@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/wants_category.dart';
 import '../../../core/models/wants_template.dart';
 import '../../../core/repositories/wants_repository.dart';
+import '../../../core/repositories/expense_repository.dart';
 import '../sheets/wants_templates_sheet.dart';
 
 class WantsTab extends StatefulWidget {
@@ -15,21 +16,36 @@ class WantsTab extends StatefulWidget {
 
 class _WantsTabState extends State<WantsTab> {
   final WantsRepository _repository = WantsRepository();
+  final ExpenseRepository _expenseRepository = ExpenseRepository();
   List<WantsCategory> _categories = [];
+  Map<int, int> _spentByCategory = {};
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadCategories();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final categories = await _repository.getAll();
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    final monthEnd = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+    final spent = await _expenseRepository.getSpentByCategory(
+      'wants',
+      start: monthStart,
+      end: monthEnd,
+    );
+    setState(() {
+      _categories = categories;
+      _spentByCategory = spent;
+      _isLoading = false;
+    });
   }
 
   Future<void> _loadCategories() async {
-    final categories = await _repository.getAll();
-    setState(() {
-      _categories = categories;
-      _isLoading = false;
-    });
+    await _loadData();
   }
 
   int get _totalAmount {
@@ -174,16 +190,18 @@ class _WantsTabState extends State<WantsTab> {
                               crossAxisCount: 2,
                               mainAxisSpacing: 10,
                               crossAxisSpacing: 10,
-                              childAspectRatio: 1.6,
+                              childAspectRatio: 1.4,
                             ),
                             itemCount: _categories.length,
                             itemBuilder: (context, index) {
                               final cat = _categories[index];
+                              final spent = _spentByCategory[cat.id] ?? 0;
                               return GestureDetector(
                                 onTap: () => _showEditCategory(context, cat),
                                 child: _CategoryCard(
                                   name: cat.name,
-                                  amount: cat.amount,
+                                  budget: cat.amount,
+                                  spent: spent,
                                   icon: _getIconData(cat.icon),
                                 ),
                               );
@@ -749,64 +767,106 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
 
 class _CategoryCard extends StatelessWidget {
   final String name;
-  final int amount;
+  final int budget;
+  final int spent;
   final IconData icon;
 
   const _CategoryCard({
     required this.name,
-    required this.amount,
+    required this.budget,
+    required this.spent,
     required this.icon,
   });
 
+  String _formatAmount(int amount) {
+    // Amount is in paise, convert to rupees
+    final rupees = amount / 100;
+    if (rupees == rupees.truncate()) {
+      return rupees.truncate().toString();
+    }
+    return rupees.toStringAsFixed(2);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final budgetInPaise = budget * 100; // Convert budget to paise for comparison
+    final progress = budgetInPaise > 0 ? (spent / budgetInPaise).clamp(0.0, 1.0) : 0.0;
+    final isOverBudget = spent > budgetInPaise && budget > 0;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF2F2F7),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black,
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isOverBudget ? const Color(0xFFFFE5E5) : const Color(0xFFF2F2F7),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(height: 2),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: isOverBudget ? const Color(0xFFFF3B30) : Colors.black87,
+                ),
+              ),
+              const Spacer(),
+              if (budget > 0)
                 Text(
-                  amount > 0 ? '₹$amount' : 'No budget',
+                  '₹${_formatAmount(spent)}',
                   style: TextStyle(
                     fontSize: 13,
-                    color: amount > 0 ? Colors.black87 : const Color(0xFFC7C7CC),
-                    fontWeight: amount > 0 ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: FontWeight.w600,
+                    color: isOverBudget ? const Color(0xFFFF3B30) : Colors.black87,
                   ),
                 ),
-              ],
+            ],
+          ),
+          const Spacer(),
+          Text(
+            name,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.black,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            budget > 0 ? '₹$budget budget' : 'No budget',
+            style: TextStyle(
+              fontSize: 12,
+              color: budget > 0 ? const Color(0xFF8E8E93) : const Color(0xFFC7C7CC),
             ),
           ),
+          if (budget > 0) ...[
+            const SizedBox(height: 8),
+            Container(
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF2F2F7),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: progress,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isOverBudget ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

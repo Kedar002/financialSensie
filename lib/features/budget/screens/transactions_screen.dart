@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/expense.dart';
+import '../../../core/repositories/expense_repository.dart';
+import '../sheets/add_expense_sheet.dart';
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -8,34 +11,39 @@ class TransactionsScreen extends StatefulWidget {
 }
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
+  final ExpenseRepository _repository = ExpenseRepository();
   String _selectedFilter = 'all';
   DateTime _selectedMonth = DateTime.now();
   DateTime? _selectedDate;
   bool _showCalendar = false;
+  List<Expense> _expenses = [];
+  bool _isLoading = true;
 
-  final List<Map<String, dynamic>> _transactions = [
-    {'title': 'Groceries', 'type': 'needs', 'amount': -245, 'date': DateTime(2025, 1, 30)},
-    {'title': 'Coffee', 'type': 'wants', 'amount': -4.50, 'date': DateTime(2025, 1, 30)},
-    {'title': 'Salary', 'type': 'income', 'amount': 5000, 'date': DateTime(2025, 1, 29)},
-    {'title': 'Rent', 'type': 'needs', 'amount': -800, 'date': DateTime(2025, 1, 28)},
-    {'title': 'Emergency Fund', 'type': 'savings', 'amount': -400, 'date': DateTime(2025, 1, 28)},
-    {'title': 'Dining Out', 'type': 'wants', 'amount': -85, 'date': DateTime(2025, 1, 27)},
-    {'title': 'Utilities', 'type': 'needs', 'amount': -155, 'date': DateTime(2025, 1, 25)},
-    {'title': 'Entertainment', 'type': 'wants', 'amount': -45, 'date': DateTime(2025, 1, 24)},
-    {'title': 'Vacation Fund', 'type': 'savings', 'amount': -150, 'date': DateTime(2025, 1, 20)},
-    {'title': 'Freelance', 'type': 'income', 'amount': 1200, 'date': DateTime(2025, 1, 15)},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadExpenses();
+  }
 
-  List<Map<String, dynamic>> get _filteredTransactions {
-    return _transactions.where((t) {
-      final matchesFilter = _selectedFilter == 'all' || t['type'] == _selectedFilter;
-      final matchesMonth = t['date'].month == _selectedMonth.month &&
-                           t['date'].year == _selectedMonth.year;
+  Future<void> _loadExpenses() async {
+    final expenses = await _repository.getByMonth(
+      _selectedMonth.year,
+      _selectedMonth.month,
+    );
+    setState(() {
+      _expenses = expenses;
+      _isLoading = false;
+    });
+  }
+
+  List<Expense> get _filteredExpenses {
+    return _expenses.where((e) {
+      final matchesFilter = _selectedFilter == 'all' || e.type == _selectedFilter;
       final matchesDate = _selectedDate == null ||
-                          (t['date'].day == _selectedDate!.day &&
-                           t['date'].month == _selectedDate!.month &&
-                           t['date'].year == _selectedDate!.year);
-      return matchesFilter && matchesMonth && matchesDate;
+          (e.date.day == _selectedDate!.day &&
+           e.date.month == _selectedDate!.month &&
+           e.date.year == _selectedDate!.year);
+      return matchesFilter && matchesDate;
     }).toList();
   }
 
@@ -43,14 +51,32 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     setState(() {
       _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1);
       _selectedDate = null;
+      _isLoading = true;
     });
+    _loadExpenses();
   }
 
   void _nextMonth() {
     setState(() {
       _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1);
       _selectedDate = null;
+      _isLoading = true;
     });
+    _loadExpenses();
+  }
+
+  String _formatAmount(int amount) {
+    final value = amount / 100;
+    if (value == value.truncate()) {
+      return value.truncate().toString().replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+        (Match m) => '${m[1]},',
+      );
+    }
+    return value.toStringAsFixed(2).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
   }
 
   @override
@@ -60,28 +86,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             _buildHeader(),
-
-            // Month Navigator
             _buildMonthNavigator(),
-
-            // Calendar Grid (collapsible)
             if (_showCalendar) _buildCalendarGrid(),
-
-            // Filter Chips
             _buildFilterChips(),
-
             const SizedBox(height: 8),
-
-            // Selected date indicator
             if (_selectedDate != null) _buildSelectedDateChip(),
-
-            // Transactions List
             Expanded(
-              child: _filteredTransactions.isEmpty
-                  ? _buildEmptyState()
-                  : _buildTransactionsList(),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _filteredExpenses.isEmpty
+                      ? _buildEmptyState()
+                      : _buildTransactionsList(),
             ),
           ],
         ),
@@ -110,10 +126,29 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(width: 40),
+          GestureDetector(
+            onTap: _showAddExpense,
+            child: const Icon(
+              Icons.add,
+              size: 24,
+              color: Color(0xFF007AFF),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  void _showAddExpense() async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AddExpenseSheet(onSaved: () {}),
+    );
+    if (result == true) {
+      _loadExpenses();
+    }
   }
 
   Widget _buildMonthNavigator() {
@@ -188,7 +223,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       ),
       child: Column(
         children: [
-          // Weekday headers
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d) => SizedBox(
@@ -205,7 +239,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             )).toList(),
           ),
           const SizedBox(height: 8),
-          // Calendar days
           ...List.generate(6, (weekIndex) {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
@@ -369,18 +402,27 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               color: Colors.grey[400],
             ),
           ),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: _showAddExpense,
+            child: const Text(
+              'Add a transaction',
+              style: TextStyle(
+                fontSize: 15,
+                color: Color(0xFF007AFF),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildTransactionsList() {
-    // Group transactions by date
-    final grouped = <String, List<Map<String, dynamic>>>{};
-    for (final t in _filteredTransactions) {
-      final date = t['date'] as DateTime;
-      final key = '${date.year}-${date.month}-${date.day}';
-      grouped.putIfAbsent(key, () => []).add(t);
+    final grouped = <String, List<Expense>>{};
+    for (final expense in _filteredExpenses) {
+      final key = '${expense.date.year}-${expense.date.month.toString().padLeft(2, '0')}-${expense.date.day.toString().padLeft(2, '0')}';
+      grouped.putIfAbsent(key, () => []).add(expense);
     }
 
     final sortedKeys = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -391,7 +433,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       itemBuilder: (context, index) {
         final dateKey = sortedKeys[index];
         final transactions = grouped[dateKey]!;
-        final date = transactions.first['date'] as DateTime;
+        final date = transactions.first.date;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -414,13 +456,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               ),
               child: Column(
                 children: transactions.asMap().entries.map((entry) {
-                  final t = entry.value;
+                  final expense = entry.value;
                   final isLast = entry.key == transactions.length - 1;
                   return _TransactionTile(
-                    title: t['title'],
-                    type: t['type'],
-                    amount: t['amount'],
+                    expense: expense,
+                    formatAmount: _formatAmount,
                     isLast: isLast,
+                    onTap: () => _showExpenseDetails(expense),
                   );
                 }).toList(),
               ),
@@ -429,6 +471,39 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         );
       },
     );
+  }
+
+  void _showExpenseDetails(Expense expense) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ExpenseDetailSheet(
+        expense: expense,
+        formatAmount: _formatAmount,
+        onEdit: () async {
+          Navigator.pop(context);
+          await showModalBottomSheet<bool>(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => AddExpenseSheet(
+              expense: expense,
+              onSaved: _loadExpenses,
+            ),
+          );
+          _loadExpenses();
+        },
+        onDelete: () async {
+          await _repository.delete(expense.id!);
+          if (mounted) Navigator.pop(context, true);
+          _loadExpenses();
+        },
+      ),
+    );
+    if (result == true) {
+      _loadExpenses();
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -448,72 +523,253 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 }
 
 class _TransactionTile extends StatelessWidget {
-  final String title;
-  final String type;
-  final double amount;
+  final Expense expense;
+  final String Function(int) formatAmount;
   final bool isLast;
+  final VoidCallback onTap;
 
   const _TransactionTile({
-    required this.title,
-    required this.type,
-    required this.amount,
+    required this.expense,
+    required this.formatAmount,
     this.isLast = false,
+    required this.onTap,
   });
 
   String get _typeLabel {
-    switch (type) {
+    switch (expense.type) {
       case 'needs': return 'Needs';
       case 'wants': return 'Wants';
       case 'savings': return 'Savings';
       case 'income': return 'Income';
-      default: return type;
+      default: return expense.type;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isPositive = amount > 0;
+    final isIncome = expense.type == 'income';
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          border: isLast
+              ? null
+              : const Border(
+                  bottom: BorderSide(color: Color(0xFFF2F2F7), width: 1),
+                ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    expense.categoryName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _typeLabel,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF8E8E93),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              '${isIncome ? '+' : '-'}₹${formatAmount(expense.amount)}',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: isIncome ? const Color(0xFF34C759) : Colors.black,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExpenseDetailSheet extends StatelessWidget {
+  final Expense expense;
+  final String Function(int) formatAmount;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _ExpenseDetailSheet({
+    required this.expense,
+    required this.formatAmount,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  String get _typeLabel {
+    switch (expense.type) {
+      case 'needs': return 'Needs';
+      case 'wants': return 'Wants';
+      case 'savings': return 'Savings';
+      case 'income': return 'Income';
+      default: return expense.type;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isIncome = expense.type == 'income';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : const Border(
-                bottom: BorderSide(color: Color(0xFFF2F2F7), width: 1),
-              ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black,
-                  ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E5E5),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  _typeLabel,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF8E8E93),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                '${isIncome ? '+' : '-'}₹${formatAmount(expense.amount)}',
+                style: TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w700,
+                  color: isIncome ? const Color(0xFF34C759) : Colors.black,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                expense.categoryName,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$_typeLabel · ${_formatDate(expense.date)}',
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: Color(0xFF8E8E93),
+                ),
+              ),
+              if (expense.note != null && expense.note!.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F2F7),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    expense.note!,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFF8E8E93),
+                    ),
                   ),
                 ),
               ],
-            ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: onEdit,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF2F2F7),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Edit',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _confirmDelete(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFE5E5),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Delete',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFFF3B30),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          Text(
-            '${isPositive ? '+' : ''}₹${amount.abs().toStringAsFixed(amount.truncateToDouble() == amount ? 0 : 2)}',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: isPositive ? const Color(0xFF34C759) : Colors.black,
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Transaction'),
+        content: const Text('Are you sure you want to delete this transaction?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onDelete();
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Color(0xFFFF3B30)),
             ),
           ),
         ],

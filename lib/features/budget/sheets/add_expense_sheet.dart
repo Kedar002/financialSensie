@@ -1,12 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/models/expense.dart';
+import '../../../core/models/needs_category.dart';
+import '../../../core/models/wants_category.dart';
+import '../../../core/models/savings_goal.dart';
+import '../../../core/repositories/needs_repository.dart';
+import '../../../core/repositories/wants_repository.dart';
+import '../../../core/repositories/savings_repository.dart';
+import '../../../core/repositories/expense_repository.dart';
 
 class AddExpenseSheet extends StatefulWidget {
   final String? preselectedType;
+  final Expense? expense; // For editing
+  final VoidCallback? onSaved;
 
   const AddExpenseSheet({
     super.key,
     this.preselectedType,
+    this.expense,
+    this.onSaved,
   });
 
   @override
@@ -16,20 +28,101 @@ class AddExpenseSheet extends StatefulWidget {
 class _AddExpenseSheetState extends State<AddExpenseSheet> {
   String _amount = '';
   String _selectedType = 'needs';
-  String? _selectedCategory;
+  Map<String, dynamic>? _selectedCategory;
   final _noteController = TextEditingController();
+  DateTime _selectedDate = DateTime.now();
 
-  final Map<String, List<String>> _categories = {
-    'needs': ['Rent', 'Groceries', 'Utilities', 'Insurance', 'Transport', 'Healthcare'],
-    'wants': ['Dining Out', 'Entertainment', 'Shopping', 'Subscriptions', 'Personal Care'],
-    'savings': ['Emergency Fund', 'Vacation', 'Retirement', 'Large Purchase'],
-  };
+  final ExpenseRepository _expenseRepository = ExpenseRepository();
+  final NeedsRepository _needsRepository = NeedsRepository();
+  final WantsRepository _wantsRepository = WantsRepository();
+  final SavingsRepository _savingsRepository = SavingsRepository();
+
+  List<NeedsCategory> _needsCategories = [];
+  List<WantsCategory> _wantsCategories = [];
+  List<SavingsGoal> _savingsGoals = [];
+  bool _isLoading = true;
+
+  bool get _isEditing => widget.expense != null;
 
   @override
   void initState() {
     super.initState();
     if (widget.preselectedType != null) {
       _selectedType = widget.preselectedType!;
+    }
+    if (widget.expense != null) {
+      // Convert from cents to display format
+      final displayAmount = widget.expense!.amount / 100;
+      if (displayAmount == displayAmount.truncate()) {
+        _amount = displayAmount.truncate().toString();
+      } else {
+        _amount = displayAmount.toStringAsFixed(2);
+      }
+      _selectedType = widget.expense!.type;
+      _noteController.text = widget.expense!.note ?? '';
+      _selectedDate = widget.expense!.date;
+    }
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final needs = await _needsRepository.getAll();
+    final wants = await _wantsRepository.getAll();
+    final savings = await _savingsRepository.getAll();
+
+    setState(() {
+      _needsCategories = needs;
+      _wantsCategories = wants;
+      _savingsGoals = savings;
+      _isLoading = false;
+
+      // If editing, find the matching category
+      if (widget.expense != null) {
+        _findSelectedCategory();
+      }
+    });
+  }
+
+  void _findSelectedCategory() {
+    final expense = widget.expense!;
+    if (expense.type == 'needs') {
+      final cat = _needsCategories.where((c) => c.id == expense.categoryId).firstOrNull;
+      if (cat != null) {
+        _selectedCategory = {'id': cat.id, 'name': cat.name};
+      }
+    } else if (expense.type == 'wants') {
+      final cat = _wantsCategories.where((c) => c.id == expense.categoryId).firstOrNull;
+      if (cat != null) {
+        _selectedCategory = {'id': cat.id, 'name': cat.name};
+      }
+    } else if (expense.type == 'savings') {
+      final goal = _savingsGoals.where((g) => g.id == expense.categoryId).firstOrNull;
+      if (goal != null) {
+        _selectedCategory = {'id': goal.id, 'name': goal.name};
+      }
+    } else if (expense.type == 'income') {
+      _selectedCategory = {'id': null, 'name': expense.categoryName};
+    }
+  }
+
+  List<Map<String, dynamic>> get _currentCategories {
+    switch (_selectedType) {
+      case 'needs':
+        return _needsCategories.map((c) => {'id': c.id, 'name': c.name}).toList();
+      case 'wants':
+        return _wantsCategories.map((c) => {'id': c.id, 'name': c.name}).toList();
+      case 'savings':
+        return _savingsGoals.map((g) => {'id': g.id, 'name': g.name}).toList();
+      case 'income':
+        return [
+          {'id': null, 'name': 'Salary'},
+          {'id': null, 'name': 'Freelance'},
+          {'id': null, 'name': 'Investment'},
+          {'id': null, 'name': 'Gift'},
+          {'id': null, 'name': 'Other'},
+        ];
+      default:
+        return [];
     }
   }
 
@@ -68,6 +161,69 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     return _amount;
   }
 
+  Future<void> _save() async {
+    if (_amount.isEmpty) return;
+
+    final amount = (double.tryParse(_amount) ?? 0) * 100;
+    final expense = Expense(
+      id: widget.expense?.id,
+      amount: amount.round(),
+      type: _selectedType,
+      categoryId: _selectedCategory?['id'] as int?,
+      categoryName: _selectedCategory?['name'] as String? ?? 'Uncategorized',
+      note: _noteController.text.isEmpty ? null : _noteController.text,
+      date: _selectedDate,
+    );
+
+    if (_isEditing) {
+      await _expenseRepository.update(expense);
+    } else {
+      await _expenseRepository.insert(expense);
+    }
+
+    widget.onSaved?.call();
+    if (mounted) Navigator.pop(context, true);
+  }
+
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.black,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
+  String get _formattedDate {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = DateTime(now.year, now.month, now.day - 1);
+    final dateOnly = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+
+    if (dateOnly == today) return 'Today';
+    if (dateOnly == yesterday) return 'Yesterday';
+
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${_selectedDate.day} ${months[_selectedDate.month - 1]}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -104,8 +260,15 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                     ),
                   ),
                 ),
+                Text(
+                  _isEditing ? 'Edit Expense' : 'Add Expense',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 GestureDetector(
-                  onTap: _amount.isNotEmpty ? () => Navigator.pop(context) : null,
+                  onTap: _amount.isNotEmpty ? _save : null,
                   child: Text(
                     'Save',
                     style: TextStyle(
@@ -121,7 +284,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
             ),
           ),
 
-          const SizedBox(height: 48),
+          const SizedBox(height: 32),
 
           // Amount
           Row(
@@ -151,7 +314,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
             ],
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
 
           // Type selector
           Padding(
@@ -163,17 +326,19 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                 _buildTypeButton('Wants', 'wants'),
                 const SizedBox(width: 8),
                 _buildTypeButton('Savings', 'savings'),
+                const SizedBox(width: 8),
+                _buildTypeButton('Income', 'income'),
               ],
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // Category
+          // Date selector
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: GestureDetector(
-              onTap: _showCategoryPicker,
+              onTap: _selectDate,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
@@ -184,7 +349,43 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      _selectedCategory ?? 'Category',
+                      _formattedDate,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 20,
+                      color: Color(0xFFD1D1D6),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Category
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: GestureDetector(
+              onTap: _isLoading ? null : _showCategoryPicker,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFE5E5E5)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _isLoading
+                          ? 'Loading...'
+                          : (_selectedCategory?['name'] as String?) ?? 'Category',
                       style: TextStyle(
                         fontSize: 17,
                         color: _selectedCategory != null
@@ -275,7 +476,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
               color: isSelected ? Colors.white : Colors.black,
             ),
@@ -286,7 +487,18 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
   }
 
   void _showCategoryPicker() {
-    final categories = _categories[_selectedType] ?? [];
+    final categories = _currentCategories;
+
+    if (categories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No ${_selectedType} categories yet. Add some first.'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -323,11 +535,11 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           child: Text(
-                            cat,
+                            cat['name'] as String,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 20,
-                              color: _selectedCategory == cat
+                              color: _selectedCategory?['name'] == cat['name']
                                   ? const Color(0xFF007AFF)
                                   : Colors.black,
                             ),

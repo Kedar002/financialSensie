@@ -21,7 +21,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -95,6 +95,19 @@ class DatabaseService {
         monthly INTEGER DEFAULT 0,
         target_date TEXT NOT NULL,
         icon TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        amount INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        category_id INTEGER,
+        category_name TEXT NOT NULL,
+        note TEXT,
+        date TEXT NOT NULL,
         created_at TEXT NOT NULL
       )
     ''');
@@ -175,6 +188,40 @@ class DatabaseService {
           monthly INTEGER DEFAULT 0,
           target_date TEXT NOT NULL,
           icon TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      ''');
+    }
+
+    if (oldVersion < 6) {
+      // Drop the table if it exists (in case it was created incorrectly)
+      await db.execute('DROP TABLE IF EXISTS expenses');
+      await db.execute('''
+        CREATE TABLE expenses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          amount INTEGER NOT NULL,
+          type TEXT NOT NULL,
+          category_id INTEGER,
+          category_name TEXT NOT NULL,
+          note TEXT,
+          date TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      ''');
+    }
+
+    if (oldVersion < 7) {
+      // Fix expenses table - drop and recreate with correct schema
+      await db.execute('DROP TABLE IF EXISTS expenses');
+      await db.execute('''
+        CREATE TABLE expenses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          amount INTEGER NOT NULL,
+          type TEXT NOT NULL,
+          category_id INTEGER,
+          category_name TEXT NOT NULL,
+          note TEXT,
+          date TEXT NOT NULL,
           created_at TEXT NOT NULL
         )
       ''');
