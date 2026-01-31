@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'emi_calculator_screen.dart';
 import 'budget_calculator_screen.dart';
 import 'payoff_calculator_screen.dart';
+import 'placeholder_calculator_screen.dart';
 
 class CalculatorScreen extends StatelessWidget {
   final VoidCallback onMenuTap;
@@ -70,6 +71,36 @@ class CalculatorScreen extends StatelessWidget {
                     title: 'Time to Payoff',
                     subtitle: 'Loan payoff timeline',
                     onTap: () => _navigateTo(context, const _PayoffCalculatorWrapper()),
+                  ),
+                  const SizedBox(height: 16),
+                  _CalculatorTile(
+                    title: 'SIP Calculator',
+                    subtitle: 'Systematic investment returns',
+                    onTap: () => _navigateTo(context, const _PlaceholderWrapper(title: 'SIP Calculator')),
+                  ),
+                  const SizedBox(height: 16),
+                  _CalculatorTile(
+                    title: 'FD Calculator',
+                    subtitle: 'Fixed deposit maturity',
+                    onTap: () => _navigateTo(context, const _PlaceholderWrapper(title: 'FD Calculator')),
+                  ),
+                  const SizedBox(height: 16),
+                  _CalculatorTile(
+                    title: 'Compound Interest',
+                    subtitle: 'Interest on interest',
+                    onTap: () => _navigateTo(context, const _PlaceholderWrapper(title: 'Compound Interest')),
+                  ),
+                  const SizedBox(height: 16),
+                  _CalculatorTile(
+                    title: 'Savings Goal',
+                    subtitle: 'Plan your target savings',
+                    onTap: () => _navigateTo(context, const _PlaceholderWrapper(title: 'Savings Goal')),
+                  ),
+                  const SizedBox(height: 16),
+                  _CalculatorTile(
+                    title: 'Lumpsum',
+                    subtitle: 'One-time investment returns',
+                    onTap: () => _navigateTo(context, const _PlaceholderWrapper(title: 'Lumpsum')),
                   ),
                 ],
               ),
@@ -187,6 +218,21 @@ class _PayoffCalculatorWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PayoffCalculatorScreen(
+      onBack: () => Navigator.of(context).pop(),
+    );
+  }
+}
+
+// Wrapper for placeholder calculators
+class _PlaceholderWrapper extends StatelessWidget {
+  final String title;
+
+  const _PlaceholderWrapper({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return PlaceholderCalculatorScreen(
+      title: title,
       onBack: () => Navigator.of(context).pop(),
     );
   }
