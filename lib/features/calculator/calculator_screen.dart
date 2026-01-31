@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'emi_calculator_screen.dart';
 import 'budget_calculator_screen.dart';
+import 'payoff_calculator_screen.dart';
 
 class CalculatorScreen extends StatelessWidget {
   final VoidCallback onMenuTap;
@@ -63,6 +64,12 @@ class CalculatorScreen extends StatelessWidget {
                     title: 'Budget Planner',
                     subtitle: '50-30-20 rule',
                     onTap: () => _navigateTo(context, const _BudgetCalculatorWrapper()),
+                  ),
+                  const SizedBox(height: 16),
+                  _CalculatorTile(
+                    title: 'Time to Payoff',
+                    subtitle: 'Loan payoff timeline',
+                    onTap: () => _navigateTo(context, const _PayoffCalculatorWrapper()),
                   ),
                 ],
               ),
@@ -168,6 +175,18 @@ class _BudgetCalculatorWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BudgetCalculatorScreen(
+      onBack: () => Navigator.of(context).pop(),
+    );
+  }
+}
+
+// Wrapper to add back navigation to Payoff Calculator
+class _PayoffCalculatorWrapper extends StatelessWidget {
+  const _PayoffCalculatorWrapper();
+
+  @override
+  Widget build(BuildContext context) {
+    return PayoffCalculatorScreen(
       onBack: () => Navigator.of(context).pop(),
     );
   }

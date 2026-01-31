@@ -202,6 +202,7 @@ A minimal hub screen listing all available calculators.
 **Available Calculators:**
 - EMI Calculator - Loan repayment planning
 - Budget Planner - 50-30-20 rule allocation
+- Time to Payoff - Loan payoff timeline
 
 **Design Principles:**
 - Clean list with subtle cards
@@ -314,3 +315,69 @@ Savings = Income × 0.20
 - Vertical color indicator beside each allocation
 - Real-time calculation as user types
 - Clear button to reset
+
+---
+
+### Time to Payoff Calculator
+**Status:** Implemented
+
+Calculate how long it will take to pay off a loan given a fixed EMI.
+
+**File:** `lib/features/calculator/payoff_calculator_screen.dart`
+
+**Navigation:** Calculator Hub → Time to Payoff
+
+**Inputs:**
+- Loan Amount (₹) - Principal (P)
+- Interest Rate (%) - Annual rate (r)
+- Monthly EMI (₹) - Fixed payment amount
+
+**Outputs:**
+- Time to Payoff - Number of months/years
+- Total Payment - Principal + total interest
+- Total Interest - Interest paid over loan duration
+
+**Calculation Methods:**
+
+1. **Reducing Balance (Diminishing Interest)**
+   - Interest calculated on outstanding principal each month
+   - Iterative calculation until outstanding ≤ 0
+
+   ```
+   i = r / (12 × 100)
+   Outstanding_0 = P
+
+   For each month k:
+     Interest_k = Outstanding_{k-1} × i
+     Principal_k = EMI - Interest_k
+     Outstanding_k = Outstanding_{k-1} - Principal_k
+
+   Stop when Outstanding_k ≤ 0
+   Total Interest = Σ Interest_k
+   ```
+
+   **Constraint:** EMI > P × i (first month's interest)
+
+2. **Flat / Fixed-on-Original Interest**
+   - Interest calculated on original principal only
+   - Monthly interest is constant
+
+   ```
+   i = r / (12 × 100)
+   Interest_monthly = P × i
+   Principal_monthly = EMI - Interest_monthly
+   n = ⌈P / Principal_monthly⌉
+   Total Interest = Interest_monthly × n
+   ```
+
+   **Constraint:** EMI > Interest_monthly
+
+**Error Handling:**
+- Shows informative message if EMI is too low
+- Caps calculation at 100 years (1200 months)
+
+**Design Principles:**
+- Toggle for interest method selection
+- Human-readable duration format (e.g., "3 yrs 6 mos")
+- Subtle error display (no harsh red colors)
+- Real-time calculation as user types
