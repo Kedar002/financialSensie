@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'features/budget/budget_screen.dart';
+import 'features/calculator/emi_calculator_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,6 +63,8 @@ class _MainScreenState extends State<MainScreen> {
         return _PlaceholderScreen(title: 'Notes', onMenuTap: _openDrawer);
       case 'knowledge':
         return _PlaceholderScreen(title: 'Knowledge', onMenuTap: _openDrawer);
+      case 'calculator':
+        return EmiCalculatorScreen(onMenuTap: _openDrawer);
       default:
         return BudgetScreen(onMenuTap: _openDrawer);
     }
@@ -178,6 +181,12 @@ class AppDrawer extends StatelessWidget {
               title: 'Knowledge',
               isSelected: currentModule == 'knowledge',
               onTap: () => onModuleSelected('knowledge'),
+            ),
+
+            _DrawerItem(
+              title: 'Calculator',
+              isSelected: currentModule == 'calculator',
+              onTap: () => onModuleSelected('calculator'),
             ),
 
             const Spacer(),

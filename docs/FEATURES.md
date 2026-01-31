@@ -185,3 +185,70 @@ CycleCompleteScreen(
 **Status:** Implemented (UI only, mock data)
 
 Displays spending trends and comparisons.
+
+---
+
+## Calculator Module
+
+### EMI Calculator
+**Status:** Implemented
+
+A minimal EMI (Equated Monthly Installment) calculator for loan planning with two calculation methods.
+
+**File:** `lib/features/calculator/emi_calculator_screen.dart`
+
+**Navigation:** Drawer → Calculator
+
+**Inputs:**
+- Loan Amount (₹) - Principal amount in rupees (P)
+- Interest Rate (%) - Annual interest rate (r)
+- Loan Tenure (months) - Duration in months (n)
+
+**Outputs:**
+- Monthly EMI - Primary result, prominently displayed
+- Total Payment - Principal + total interest
+- Total Interest - Interest paid over loan tenure
+
+**Calculation Methods:**
+
+1. **Reducing Balance (Diminishing Interest)**
+   - Interest calculated on outstanding principal each month
+   - As principal reduces, interest decreases
+   - EMI remains constant, but interest/principal components change
+
+   ```
+   i = r / (12 × 100)  (monthly interest rate)
+   EMI = P × i × (1 + i)^n / ((1 + i)^n - 1)
+   Total Payment = EMI × n
+   Total Interest = Total Payment - P
+   ```
+
+2. **Flat / Fixed-on-Original Interest**
+   - Interest calculated on original principal for entire tenure
+   - Total interest computed upfront
+   - EMI = total repayment divided evenly
+
+   ```
+   Total Interest (TI) = P × (r / 100) × (n / 12)
+   Total Repayment (TR) = P + TI
+   EMI = TR / n
+   ```
+
+**Why Total Interest Differs:**
+- Reducing balance charges interest only on remaining principal
+- Flat method charges interest on full original amount throughout
+- Flat method always results in higher total interest paid
+
+**Design Principles:**
+- Toggle switch to select method (iOS-style segmented control)
+- Real-time calculation (no Calculate button needed)
+- Large, clear typography for results
+- Minimal input fields with subtle underlines
+- Currency formatting (K/L/Cr for large numbers)
+- Clear button to reset all fields
+- Subtle explanation text showing which method is active
+
+**Features:**
+- Handles zero interest rate edge case
+- Input validation (positive numbers only)
+- Smart currency formatting for Indian rupees
