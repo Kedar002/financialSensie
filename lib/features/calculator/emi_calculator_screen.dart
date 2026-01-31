@@ -6,8 +6,13 @@ enum InterestMethod { reducing, flat }
 
 class EmiCalculatorScreen extends StatefulWidget {
   final VoidCallback onMenuTap;
+  final bool showBackButton;
 
-  const EmiCalculatorScreen({super.key, required this.onMenuTap});
+  const EmiCalculatorScreen({
+    super.key,
+    required this.onMenuTap,
+    this.showBackButton = false,
+  });
 
   @override
   State<EmiCalculatorScreen> createState() => _EmiCalculatorScreenState();
@@ -156,7 +161,10 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.menu, size: 24),
+                    icon: Icon(
+                      widget.showBackButton ? Icons.arrow_back : Icons.menu,
+                      size: 24,
+                    ),
                     onPressed: widget.onMenuTap,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
