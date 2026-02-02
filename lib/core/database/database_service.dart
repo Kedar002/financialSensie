@@ -21,7 +21,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -144,6 +144,37 @@ class DatabaseService {
         cycle_start TEXT NOT NULL,
         cycle_end TEXT NOT NULL,
         pay_cycle_day INTEGER DEFAULT 1
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        content TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE people (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE money_transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        person_id INTEGER NOT NULL,
+        amount INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        note TEXT,
+        date TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (person_id) REFERENCES people (id) ON DELETE CASCADE
       )
     ''');
   }
@@ -299,6 +330,39 @@ class DatabaseService {
           cycle_start TEXT NOT NULL,
           cycle_end TEXT NOT NULL,
           pay_cycle_day INTEGER DEFAULT 1
+        )
+      ''');
+    }
+
+    if (oldVersion < 11) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS notes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          content TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS people (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          created_at TEXT NOT NULL
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS money_transactions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          person_id INTEGER NOT NULL,
+          amount INTEGER NOT NULL,
+          type TEXT NOT NULL,
+          note TEXT,
+          date TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (person_id) REFERENCES people (id) ON DELETE CASCADE
         )
       ''');
     }

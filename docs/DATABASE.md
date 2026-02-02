@@ -597,3 +597,143 @@ CREATE TABLE cycle_settings (
   pay_cycle_day INTEGER DEFAULT 1
 );
 ```
+
+---
+
+## Notes Tables
+
+### notes
+
+Stores user notes (like Apple Notes).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier |
+| title | TEXT | NOT NULL | Note title |
+| content | TEXT | NULLABLE | Note content |
+| created_at | TEXT | NOT NULL | ISO 8601 timestamp |
+| updated_at | TEXT | NOT NULL | ISO 8601 timestamp |
+
+**Example:**
+```sql
+INSERT INTO notes (title, content, created_at, updated_at)
+VALUES ('Shopping List', 'Milk, Eggs, Bread', '2025-01-31T10:00:00.000Z', '2025-01-31T10:00:00.000Z');
+```
+
+---
+
+### people
+
+Stores people for money tracking.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier |
+| name | TEXT | NOT NULL UNIQUE | Person's name |
+| created_at | TEXT | NOT NULL | ISO 8601 timestamp |
+
+**Example:**
+```sql
+INSERT INTO people (name, created_at)
+VALUES ('Rahul', '2025-01-31T10:00:00.000Z');
+```
+
+---
+
+### money_transactions
+
+Stores money given/received records with people.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier |
+| person_id | INTEGER | NOT NULL, FK | Reference to people table |
+| amount | INTEGER | NOT NULL | Amount in paise |
+| type | TEXT | NOT NULL | Type: 'given' or 'received' |
+| note | TEXT | NULLABLE | Optional note for transaction |
+| date | TEXT | NOT NULL | ISO 8601 transaction date |
+| created_at | TEXT | NOT NULL | ISO 8601 timestamp |
+
+**Foreign Key:** `person_id` → `people(id)` ON DELETE CASCADE
+
+**Transaction Types:**
+| Type | Description | Balance Effect |
+|------|-------------|----------------|
+| `given` | Money I gave to person | Positive (they owe me) |
+| `received` | Money I received from person | Negative (I owe them) |
+
+**Balance Calculation:**
+- Balance = SUM(given) - SUM(received)
+- Positive balance = They owe me
+- Negative balance = I owe them
+- Zero = Settled
+
+**Example:**
+```sql
+INSERT INTO money_transactions (person_id, amount, type, note, date, created_at)
+VALUES (1, 50000, 'given', 'Lunch money', '2025-01-31T10:00:00.000Z', '2025-01-31T10:00:00.000Z');
+```
+
+---
+
+## Notes Repository Methods
+
+### NoteRepository
+
+| Method | Description |
+|--------|-------------|
+| `getAll()` | Returns all notes ordered by updated_at DESC |
+| `getById(int id)` | Returns single note by ID |
+| `insert(Note)` | Creates new note, returns ID |
+| `update(Note)` | Updates existing note |
+| `delete(int id)` | Deletes note by ID |
+| `search(String query)` | Searches notes by title or content |
+
+### PersonRepository
+
+| Method | Description |
+|--------|-------------|
+| `getAll()` | Returns all people ordered by name |
+| `getById(int id)` | Returns single person by ID |
+| `getByName(String name)` | Returns person by name |
+| `insert(Person)` | Creates new person, returns ID |
+| `update(Person)` | Updates existing person |
+| `delete(int id)` | Deletes person and all transactions (CASCADE) |
+| `getOrCreate(String name)` | Gets existing or creates new person |
+| `getBalance(int personId)` | Returns balance (positive = they owe me) |
+| `getTotalCommerce(int personId)` | Returns total money exchanged |
+| `getTransactions(int personId)` | Returns all transactions for person |
+| `addTransaction(MoneyTransaction)` | Adds new transaction |
+| `deleteTransaction(int id)` | Deletes single transaction |
+| `getAllWithBalances()` | Returns all people with their balances |
+
+---
+
+### Version 11 (Notes & Money Tracking)
+
+```sql
+CREATE TABLE notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  content TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE people (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE money_transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  person_id INTEGER NOT NULL,
+  amount INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  note TEXT,
+  date TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (person_id) REFERENCES people (id) ON DELETE CASCADE
+);
+```

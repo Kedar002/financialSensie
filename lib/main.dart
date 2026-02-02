@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'features/budget/budget_screen.dart';
 import 'features/calculator/calculator_screen.dart';
 import 'features/learn/learn_screen.dart';
+import 'features/notes/screens/notes_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,7 +62,7 @@ class _MainScreenState extends State<MainScreen> {
       case 'budget':
         return BudgetScreen(onMenuTap: _openDrawer);
       case 'notes':
-        return _PlaceholderScreen(title: 'Notes', onMenuTap: _openDrawer);
+        return NotesScreen(onMenuTap: _openDrawer);
       case 'knowledge':
         return LearnScreen(onMenuTap: _openDrawer);
       case 'calculator':
@@ -83,51 +84,6 @@ class _MainScreenState extends State<MainScreen> {
         },
       ),
       body: _buildCurrentModule(),
-    );
-  }
-}
-
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  final VoidCallback onMenuTap;
-
-  const _PlaceholderScreen({required this.title, required this.onMenuTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.menu, size: 24),
-                    onPressed: onMenuTap,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Center(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF999999),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
