@@ -106,8 +106,10 @@ class ExpenseRepository {
     final expenses = start != null && end != null
         ? await getByDateRange(start, end)
         : await getAll();
+    // Exclude income and savings_withdrawal from total spent
+    // savings_withdrawal is just a record - it doesn't affect the budget
     return expenses
-        .where((e) => e.type != 'income')
+        .where((e) => e.type != 'income' && e.type != 'savings_withdrawal')
         .fold<int>(0, (sum, e) => sum + e.amount);
   }
 
@@ -123,7 +125,9 @@ class ExpenseRepository {
     };
 
     for (final expense in expenses) {
-      if (expense.type != 'income' && result.containsKey(expense.type)) {
+      // Exclude income and savings_withdrawal from spent calculations
+      // savings_withdrawal is just a record - it doesn't affect the budget
+      if (expense.type != 'income' && expense.type != 'savings_withdrawal' && result.containsKey(expense.type)) {
         result[expense.type] = result[expense.type]! + expense.amount;
       }
     }

@@ -589,7 +589,34 @@ class _ExpensesTabState extends State<ExpensesTab> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF2F2F7),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 18,
+                          color: Color(0xFF8E8E93),
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Saving will reset cycle dates to include today',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF8E8E93),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   GestureDetector(
                     onTap: () async {
                       // Save to database and update local state
@@ -610,7 +637,7 @@ class _ExpensesTabState extends State<ExpensesTab> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text(
-                        'Save',
+                        'Save & Reset Cycle',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 17,
@@ -737,6 +764,7 @@ class _TransactionTile extends StatelessWidget {
       case 'needs': return 'Needs';
       case 'wants': return 'Wants';
       case 'savings': return 'Savings';
+      case 'savings_withdrawal': return 'Withdrawal';
       case 'income': return 'Balance';
       default: return expense.type;
     }
@@ -745,6 +773,7 @@ class _TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncome = expense.type == 'income';
+    final isWithdrawal = expense.type == 'savings_withdrawal';
 
     return GestureDetector(
       onTap: onTap,
@@ -784,11 +813,11 @@ class _TransactionTile extends StatelessWidget {
               ),
             ),
             Text(
-              '${isIncome ? '+' : '-'}₹${formatAmount(expense.amount)}',
+              '${isIncome || isWithdrawal ? '+' : '-'}₹${formatAmount(expense.amount)}',
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
-                color: isIncome ? const Color(0xFF34C759) : Colors.black,
+                color: isIncome || isWithdrawal ? const Color(0xFF34C759) : Colors.black,
               ),
             ),
           ],
@@ -818,6 +847,7 @@ class _ExpenseDetailSheet extends StatelessWidget {
       case 'needs': return 'Needs';
       case 'wants': return 'Wants';
       case 'savings': return 'Savings';
+      case 'savings_withdrawal': return 'Withdrawal';
       case 'income': return 'Balance';
       default: return expense.type;
     }
@@ -826,6 +856,7 @@ class _ExpenseDetailSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncome = expense.type == 'income';
+    final isWithdrawal = expense.type == 'savings_withdrawal';
 
     return Container(
       decoration: const BoxDecoration(
@@ -848,11 +879,11 @@ class _ExpenseDetailSheet extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                '${isIncome ? '+' : '-'}₹${formatAmount(expense.amount)}',
+                '${isIncome || isWithdrawal ? '+' : '-'}₹${formatAmount(expense.amount)}',
                 style: TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.w700,
-                  color: isIncome ? const Color(0xFF34C759) : Colors.black,
+                  color: isIncome || isWithdrawal ? const Color(0xFF34C759) : Colors.black,
                 ),
               ),
               const SizedBox(height: 8),

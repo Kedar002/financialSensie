@@ -16,22 +16,39 @@ class BudgetScreen extends StatefulWidget {
 
 class _BudgetScreenState extends State<BudgetScreen> {
   int _currentIndex = 0;
+  // Keys to force rebuild when switching tabs (refreshes data)
+  final List<UniqueKey> _tabKeys = List.generate(5, (_) => UniqueKey());
 
-  List<Widget> get _tabs => [
-    ExpensesTab(onMenuTap: widget.onMenuTap),
-    NeedsTab(onMenuTap: widget.onMenuTap),
-    WantsTab(onMenuTap: widget.onMenuTap),
-    SavingsTab(onMenuTap: widget.onMenuTap),
-    StatisticsTab(onMenuTap: widget.onMenuTap),
-  ];
+  void _onTabTap(int index) {
+    // Generate new key for the tab to force refresh
+    _tabKeys[index] = UniqueKey();
+    setState(() => _currentIndex = index);
+  }
+
+  Widget _buildTab(int index) {
+    switch (index) {
+      case 0:
+        return ExpensesTab(key: _tabKeys[0], onMenuTap: widget.onMenuTap);
+      case 1:
+        return NeedsTab(key: _tabKeys[1], onMenuTap: widget.onMenuTap);
+      case 2:
+        return WantsTab(key: _tabKeys[2], onMenuTap: widget.onMenuTap);
+      case 3:
+        return SavingsTab(key: _tabKeys[3], onMenuTap: widget.onMenuTap);
+      case 4:
+        return StatisticsTab(key: _tabKeys[4], onMenuTap: widget.onMenuTap);
+      default:
+        return ExpensesTab(key: _tabKeys[0], onMenuTap: widget.onMenuTap);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _tabs[_currentIndex],
+      body: _buildTab(_currentIndex),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: _onTabTap,
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         elevation: 0,
@@ -44,22 +61,22 @@ class _BudgetScreenState extends State<BudgetScreen> {
           BottomNavigationBarItem(
             icon: Padding(
               padding: EdgeInsets.only(bottom: 4),
-              child: Icon(Icons.account_balance_wallet_outlined, size: 22),
-            ),
-            activeIcon: Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Icon(Icons.account_balance_wallet, size: 22),
-            ),
-            label: 'Expenses',
-          ),
-          BottomNavigationBarItem(
-            icon: Padding(
-              padding: EdgeInsets.only(bottom: 4),
               child: Icon(Icons.home_outlined, size: 22),
             ),
             activeIcon: Padding(
               padding: EdgeInsets.only(bottom: 4),
               child: Icon(Icons.home, size: 22),
+            ),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.receipt_long_outlined, size: 22),
+            ),
+            activeIcon: Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.receipt_long, size: 22),
             ),
             label: 'Needs',
           ),

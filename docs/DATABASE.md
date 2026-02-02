@@ -320,6 +320,7 @@ Available icons for savings goals:
 | `update(SavingsGoal)` | Updates existing goal |
 | `delete(int id)` | Deletes goal by ID |
 | `addMoney(int id, int amount)` | Adds amount to goal's saved value |
+| `withdrawMoney(int id, int amount)` | Withdraws amount from goal's saved value (clamps to 0) |
 | `getTotalSaved()` | Returns sum of all saved amounts |
 
 ---
@@ -380,12 +381,23 @@ Stores all expense and income transactions.
 |--------|------|-------------|-------------|
 | id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier |
 | amount | INTEGER | NOT NULL | Amount in smallest currency unit (paise) |
-| type | TEXT | NOT NULL | Type: 'needs', 'wants', 'savings', or 'income' |
+| type | TEXT | NOT NULL | Type: 'needs', 'wants', 'savings', 'savings_withdrawal', or 'income' |
 | category_id | INTEGER | NULLABLE | Reference to category table (based on type) |
 | category_name | TEXT | NOT NULL | Category name for display |
 | note | TEXT | NULLABLE | Optional note for the transaction |
 | date | TEXT | NOT NULL | ISO 8601 transaction date |
 | created_at | TEXT | NOT NULL | ISO 8601 timestamp |
+
+**Expense Types:**
+| Type | Description | Affects Spent? | Affects Balance? |
+|------|-------------|----------------|------------------|
+| `needs` | Essential expenses | Yes | Yes |
+| `wants` | Discretionary expenses | Yes | Yes |
+| `savings` | Money deposited to savings goals | Yes | Yes |
+| `savings_withdrawal` | Money withdrawn from savings | No | No |
+| `income` | Income transactions | No (adds) | No (adds) |
+
+**Note:** `savings_withdrawal` is recorded for historical tracking but does NOT affect budget calculations. When calculating `getTotalSpent()` or `getSpentByType()`, withdrawals are excluded.
 
 **Example:**
 ```sql
@@ -410,8 +422,8 @@ VALUES (45000, 'needs', 1, 'Groceries', 'Weekly shopping', '2025-01-31T10:00:00.
 | `update(Expense)` | Updates existing expense |
 | `delete(int id)` | Deletes expense by ID |
 | `getTotalIncome({DateTime? start, DateTime? end})` | Returns sum of income |
-| `getTotalSpent({DateTime? start, DateTime? end})` | Returns sum of expenses |
-| `getSpentByType({DateTime? start, DateTime? end})` | Returns spending breakdown by type |
+| `getTotalSpent({DateTime? start, DateTime? end})` | Returns sum of expenses (excludes savings_withdrawal) |
+| `getSpentByType({DateTime? start, DateTime? end})` | Returns spending breakdown by type (excludes savings_withdrawal) |
 
 ---
 

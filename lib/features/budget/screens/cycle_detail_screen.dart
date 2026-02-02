@@ -482,6 +482,8 @@ class _TransactionItem extends StatelessWidget {
         return 'Wants';
       case 'savings':
         return 'Savings';
+      case 'savings_withdrawal':
+        return 'Withdrawal';
       case 'income':
         return 'Income';
       default:
@@ -497,6 +499,8 @@ class _TransactionItem extends StatelessWidget {
         return const Color(0xFFFF9500);
       case 'savings':
         return const Color(0xFF34C759);
+      case 'savings_withdrawal':
+        return const Color(0xFF34C759);
       case 'income':
         return const Color(0xFF34C759);
       default:
@@ -507,6 +511,7 @@ class _TransactionItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncome = expense.type == 'income';
+    final isWithdrawal = expense.type == 'savings_withdrawal';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -560,11 +565,11 @@ class _TransactionItem extends StatelessWidget {
 
           // Amount
           Text(
-            '${isIncome ? '+' : '-'}₹${formatAmount(expense.amount)}',
+            '${isIncome || isWithdrawal ? '+' : '-'}₹${formatAmount(expense.amount)}',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: isIncome ? const Color(0xFF34C759) : Colors.white,
+              color: isIncome || isWithdrawal ? const Color(0xFF34C759) : Colors.white,
             ),
           ),
         ],

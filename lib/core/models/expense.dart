@@ -1,7 +1,7 @@
 class Expense {
   final int? id;
   final int amount;
-  final String type; // 'needs', 'wants', 'savings', 'income'
+  final String type; // 'needs', 'wants', 'savings', 'savings_withdrawal', 'income'
   final int? categoryId;
   final String categoryName;
   final String? note;
@@ -21,7 +21,8 @@ class Expense {
         createdAt = createdAt ?? DateTime.now();
 
   bool get isIncome => type == 'income';
-  bool get isExpense => type != 'income';
+  bool get isExpense => type != 'income' && type != 'savings_withdrawal';
+  bool get isSavingsWithdrawal => type == 'savings_withdrawal';
 
   Map<String, dynamic> toMap() {
     return {

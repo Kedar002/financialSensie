@@ -119,9 +119,25 @@ Allows users to save and reuse recurring discretionary expense patterns.
 ---
 
 ### Savings Tab
-**Status:** Implemented (UI only, mock data)
+**Status:** Implemented (Fully functional)
 
 Displays savings goals with progress tracking.
+
+**Features:**
+- Create savings goals with target amount, monthly contribution, target date
+- Add money to goals (deposits) - creates expense record, affects budget
+- Withdraw money from goals - creates record only, does NOT affect budget
+- Investment suggestion based on goal timeline
+- Progress tracking with percentage and visual bar
+
+**Savings Operations:**
+
+See `docs/SAVINGS_LOGIC.md` for detailed documentation on how deposits and withdrawals work.
+
+| Operation | Type | Budget Impact |
+|-----------|------|---------------|
+| Add Money (Deposit) | `savings` | Counts as expense, reduces remaining balance |
+| Withdraw | `savings_withdrawal` | Record only, no budget impact |
 
 ---
 

@@ -56,6 +56,18 @@ class SavingsRepository {
     return await update(updated);
   }
 
+  /// Withdraw money from a savings goal
+  /// Returns the updated rows count (1 if successful, 0 if failed)
+  Future<int> withdrawMoney(int id, int amount) async {
+    final goal = await getById(id);
+    if (goal == null) return 0;
+
+    // Ensure we don't go below 0
+    final newSaved = (goal.saved - amount).clamp(0, goal.saved);
+    final updated = goal.copyWith(saved: newSaved);
+    return await update(updated);
+  }
+
   Future<int> getTotalSaved() async {
     final goals = await getAll();
     return goals.fold<int>(0, (sum, goal) => sum + goal.saved);

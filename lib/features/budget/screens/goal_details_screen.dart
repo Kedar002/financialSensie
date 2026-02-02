@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/expense.dart';
 import '../../../core/models/savings_goal.dart';
+import '../../../core/repositories/expense_repository.dart';
 import '../../../core/repositories/savings_repository.dart';
 
 class GoalDetailsScreen extends StatefulWidget {
@@ -13,6 +15,7 @@ class GoalDetailsScreen extends StatefulWidget {
 
 class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
   final SavingsRepository _repository = SavingsRepository();
+  final ExpenseRepository _expenseRepository = ExpenseRepository();
   late SavingsGoal _goal;
   bool _hasChanges = false;
 
@@ -362,26 +365,59 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Add money button
-                    GestureDetector(
-                      onTap: () => _showAddMoneySheet(context),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'Add Money',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                    // Action buttons row
+                    Row(
+                      children: [
+                        // Add money button
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => _showAddMoneySheet(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'Add Money',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        // Withdraw button
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: _goal.saved > 0 ? () => _showWithdrawSheet(context) : null,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              decoration: BoxDecoration(
+                                color: _goal.saved > 0 ? Colors.white : const Color(0xFFF2F2F7),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _goal.saved > 0 ? Colors.black : const Color(0xFFE5E5E5),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                'Withdraw',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: _goal.saved > 0 ? Colors.black : const Color(0xFFC7C7CC),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
 
                     const SizedBox(height: 16),
@@ -415,90 +451,405 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
 
   void _showAddMoneySheet(BuildContext context) {
     final controller = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+
+    String formatDate(DateTime date) {
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final dateOnly = DateTime(date.year, date.month, date.day);
+
+      if (dateOnly == today) return 'Today';
+      return '${date.day} ${months[date.month - 1]} ${date.year}';
+    }
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE5E5E5),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Add Money',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: controller,
-                  keyboardType: TextInputType.number,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    hintText: 'Amount',
-                    prefixText: '₹ ',
-                    filled: true,
-                    fillColor: const Color(0xFFF2F2F7),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                GestureDetector(
-                  onTap: () async {
-                    final amount = int.tryParse(controller.text) ?? 0;
-                    if (amount > 0) {
-                      await _repository.addMoney(_goal.id!, amount);
-                      await _refreshGoal();
-                      if (context.mounted) Navigator.pop(context);
-                    }
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(12),
+                      color: const Color(0xFFE5E5E5),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    child: const Text(
-                      'Add',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Add Money',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Amount',
+                      prefixText: '₹ ',
+                      filled: true,
+                      fillColor: const Color(0xFFF2F2F7),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
                       ),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  // Date picker
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.light(
+                                primary: Colors.black,
+                                onPrimary: Colors.white,
+                                surface: Colors.white,
+                                onSurface: Colors.black,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setSheetState(() => selectedDate = picked);
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF2F2F7),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            formatDate(selectedDate),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 20,
+                            color: Color(0xFF8E8E93),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  GestureDetector(
+                    onTap: () async {
+                      final amount = int.tryParse(controller.text) ?? 0;
+                      if (amount > 0) {
+                        // Create expense record (amount in paise)
+                        final expense = Expense(
+                          amount: amount * 100,
+                          type: 'savings',
+                          categoryId: _goal.id,
+                          categoryName: _goal.name,
+                          note: 'Added to ${_goal.name}',
+                          date: selectedDate,
+                        );
+                        await _expenseRepository.insert(expense);
+
+                        // Update savings goal
+                        await _repository.addMoney(_goal.id!, amount);
+                        await _refreshGoal();
+                        if (context.mounted) Navigator.pop(context);
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Add',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showWithdrawSheet(BuildContext context) {
+    final controller = TextEditingController();
+    String? errorText;
+    DateTime selectedDate = DateTime.now();
+
+    String formatDate(DateTime date) {
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final dateOnly = DateTime(date.year, date.month, date.day);
+
+      if (dateOnly == today) return 'Today';
+      return '${date.day} ${months[date.month - 1]} ${date.year}';
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E5E5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Withdraw',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Available: ₹${_formatAmount(_goal.saved)}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF8E8E93),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    autofocus: true,
+                    onChanged: (value) {
+                      final amount = int.tryParse(value) ?? 0;
+                      setSheetState(() {
+                        if (amount > _goal.saved) {
+                          errorText = 'Amount exceeds available balance';
+                        } else {
+                          errorText = null;
+                        }
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Amount',
+                      prefixText: '₹ ',
+                      filled: true,
+                      fillColor: errorText != null
+                          ? const Color(0xFFFFE5E5)
+                          : const Color(0xFFF2F2F7),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                    ),
+                  ),
+                  if (errorText != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8, left: 4),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          errorText!,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFFFF3B30),
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  // Date picker
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.light(
+                                primary: Colors.black,
+                                onPrimary: Colors.white,
+                                surface: Colors.white,
+                                onSurface: Colors.black,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setSheetState(() => selectedDate = picked);
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF2F2F7),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            formatDate(selectedDate),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 20,
+                            color: Color(0xFF8E8E93),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Info text
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF2F2F7),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 18,
+                          color: Color(0xFF8E8E93),
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Withdrawals are recorded but won\'t affect your budget balance',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF8E8E93),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: () async {
+                      final amount = int.tryParse(controller.text) ?? 0;
+                      if (amount > 0 && amount <= _goal.saved && errorText == null) {
+                        // Create withdrawal record (amount in paise)
+                        final expense = Expense(
+                          amount: amount * 100,
+                          type: 'savings_withdrawal',
+                          categoryId: _goal.id,
+                          categoryName: _goal.name,
+                          note: 'Withdrawal from ${_goal.name}',
+                          date: selectedDate,
+                        );
+                        await _expenseRepository.insert(expense);
+
+                        // Decrease savings goal
+                        await _repository.withdrawMoney(_goal.id!, amount);
+
+                        await _refreshGoal();
+                        if (context.mounted) Navigator.pop(context);
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: errorText != null ? const Color(0xFFC7C7CC) : Colors.black,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Withdraw',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
