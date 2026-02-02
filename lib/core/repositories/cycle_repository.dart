@@ -14,6 +14,17 @@ class CycleRepository {
     return maps.map((map) => CycleHistory.fromMap(map)).toList();
   }
 
+  /// Get recent cycles (up to 10 years = ~120 cycles)
+  Future<List<CycleHistory>> getRecent({int limit = 120}) async {
+    final db = await _db.database;
+    final maps = await db.query(
+      'cycle_history',
+      orderBy: 'cycle_end DESC',
+      limit: limit,
+    );
+    return maps.map((map) => CycleHistory.fromMap(map)).toList();
+  }
+
   /// Get a specific cycle by ID
   Future<CycleHistory?> getById(int id) async {
     final db = await _db.database;

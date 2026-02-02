@@ -193,9 +193,67 @@ When the user taps "Start New Cycle":
 ---
 
 ### Statistics Tab
-**Status:** Implemented (UI only, mock data)
+**Status:** Implemented (UI with mock data)
 
 Displays spending trends and comparisons.
+
+**File:** `lib/features/budget/tabs/statistics_tab.dart`
+
+**Features:**
+- Month selector to navigate between months
+- Bar charts for Needs, Wants, and Savings trends (last 6 months)
+- Shows amount and percentage of income for each category
+- History button (top right) to access Past Cycles screen
+
+**Design:**
+- Minimal, clean cards for each category
+- Animated bar charts with selection highlighting
+- Color-coded categories (blue/orange/green)
+
+---
+
+### Cycle History Screen
+**Status:** Implemented (Fully functional)
+
+A dedicated screen for browsing all past budget cycles.
+
+**File:** `lib/features/budget/screens/cycle_history_screen.dart`
+
+**Navigation:** Statistics tab → History icon (top right)
+
+**Data Source:** `cycle_history` table (up to 120 cycles / ~10 years)
+
+**Features:**
+- Cycles grouped by year
+- Each cycle shows: name, date range, saved/overspent amount
+- Color-coded status indicators (green = saved, red = overspent)
+- Tap any cycle to view full report
+- Empty state when no cycles exist
+
+**Design:**
+- Clean, minimal list design
+- Large title "Past Cycles"
+- Year section headers
+- Generous whitespace
+- Subtle separators between items
+
+---
+
+### Cycle Detail Screen
+**Status:** Implemented (Fully functional)
+
+A read-only view of a past cycle's complete report.
+
+**File:** `lib/features/budget/screens/cycle_detail_screen.dart`
+
+**Navigation:** Cycle History → Select cycle
+
+**Design:**
+- Dark theme (matches cycle complete screen)
+- Back button for navigation
+- Full breakdown: income, spent, saved, remaining
+- Spending bar visualization (needs vs wants)
+- Percentage breakdown by category
 
 ---
 

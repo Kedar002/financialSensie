@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../screens/cycle_history_screen.dart';
 
 class StatisticsTab extends StatefulWidget {
   final VoidCallback onMenuTap;
@@ -43,6 +44,19 @@ class _StatisticsTabState extends State<StatisticsTab> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: const Icon(Icons.menu, size: 20, color: Colors.black),
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => _openCycleHistory(context),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(Icons.history, size: 20, color: Colors.black),
                     ),
                   ),
                 ],
@@ -111,6 +125,13 @@ class _StatisticsTabState extends State<StatisticsTab> {
           ],
         ),
       ),
+    );
+  }
+
+  void _openCycleHistory(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CycleHistoryScreen()),
     );
   }
 }
