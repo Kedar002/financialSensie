@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'features/budget/budget_screen.dart';
 import 'features/calculator/calculator_screen.dart';
+import 'features/learn/learn_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,7 +63,7 @@ class _MainScreenState extends State<MainScreen> {
       case 'notes':
         return _PlaceholderScreen(title: 'Notes', onMenuTap: _openDrawer);
       case 'knowledge':
-        return _PlaceholderScreen(title: 'Knowledge', onMenuTap: _openDrawer);
+        return LearnScreen(onMenuTap: _openDrawer);
       case 'calculator':
         return CalculatorScreen(onMenuTap: _openDrawer);
       default:
@@ -178,7 +179,7 @@ class AppDrawer extends StatelessWidget {
             ),
 
             _DrawerItem(
-              title: 'Knowledge',
+              title: 'Learn',
               isSelected: currentModule == 'knowledge',
               onTap: () => onModuleSelected('knowledge'),
             ),
