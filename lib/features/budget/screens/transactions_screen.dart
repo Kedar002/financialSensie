@@ -38,7 +38,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   List<Expense> get _filteredExpenses {
     return _expenses.where((e) {
-      final matchesFilter = _selectedFilter == 'all' || e.type == _selectedFilter;
+      // For savings filter, include both savings deposits and withdrawals
+      final matchesFilter = _selectedFilter == 'all' ||
+          e.type == _selectedFilter ||
+          (_selectedFilter == 'savings' && e.type == 'savings_withdrawal');
       final matchesDate = _selectedDate == null ||
           (e.date.day == _selectedDate!.day &&
            e.date.month == _selectedDate!.month &&
@@ -540,6 +543,7 @@ class _TransactionTile extends StatelessWidget {
       case 'needs': return 'Needs';
       case 'wants': return 'Wants';
       case 'savings': return 'Savings';
+      case 'savings_withdrawal': return 'Withdrawal';
       case 'income': return 'Balance';
       default: return expense.type;
     }
@@ -548,6 +552,7 @@ class _TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncome = expense.type == 'income';
+    final isWithdrawal = expense.type == 'savings_withdrawal';
 
     return GestureDetector(
       onTap: onTap,
@@ -587,11 +592,11 @@ class _TransactionTile extends StatelessWidget {
               ),
             ),
             Text(
-              '${isIncome ? '+' : '-'}₹${formatAmount(expense.amount)}',
+              '${isIncome || isWithdrawal ? '+' : '-'}₹${formatAmount(expense.amount)}',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: isIncome ? const Color(0xFF34C759) : Colors.black,
+                color: isIncome || isWithdrawal ? const Color(0xFF34C759) : Colors.black,
               ),
             ),
           ],
@@ -619,6 +624,7 @@ class _ExpenseDetailSheet extends StatelessWidget {
       case 'needs': return 'Needs';
       case 'wants': return 'Wants';
       case 'savings': return 'Savings';
+      case 'savings_withdrawal': return 'Withdrawal';
       case 'income': return 'Balance';
       default: return expense.type;
     }
@@ -633,6 +639,7 @@ class _ExpenseDetailSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncome = expense.type == 'income';
+    final isWithdrawal = expense.type == 'savings_withdrawal';
 
     return Container(
       decoration: const BoxDecoration(
@@ -655,11 +662,11 @@ class _ExpenseDetailSheet extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                '${isIncome ? '+' : '-'}₹${formatAmount(expense.amount)}',
+                '${isIncome || isWithdrawal ? '+' : '-'}₹${formatAmount(expense.amount)}',
                 style: TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.w700,
-                  color: isIncome ? const Color(0xFF34C759) : Colors.black,
+                  color: isIncome || isWithdrawal ? const Color(0xFF34C759) : Colors.black,
                 ),
               ),
               const SizedBox(height: 8),
