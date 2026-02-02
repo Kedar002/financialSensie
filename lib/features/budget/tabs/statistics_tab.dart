@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/cycle_history.dart';
+import '../../../core/repositories/cycle_repository.dart';
 import '../screens/cycle_history_screen.dart';
 
 class StatisticsTab extends StatefulWidget {
@@ -11,16 +13,24 @@ class StatisticsTab extends StatefulWidget {
 }
 
 class _StatisticsTabState extends State<StatisticsTab> {
-  int _selectedMonthIndex = 0;
+  final CycleRepository _cycleRepository = CycleRepository();
+  List<CycleHistory> _cycles = [];
+  int _selectedIndex = 0;
+  bool _isLoading = true;
 
-  final List<Map<String, dynamic>> _months = const [
-    {'month': 'Jan', 'year': 2025, 'income': 5850, 'needs': 1200, 'wants': 350, 'savings': 650},
-    {'month': 'Dec', 'year': 2024, 'income': 5850, 'needs': 1450, 'wants': 520, 'savings': 400},
-    {'month': 'Nov', 'year': 2024, 'income': 5500, 'needs': 1300, 'wants': 480, 'savings': 350},
-    {'month': 'Oct', 'year': 2024, 'income': 5500, 'needs': 1100, 'wants': 390, 'savings': 500},
-    {'month': 'Sep', 'year': 2024, 'income': 5200, 'needs': 1250, 'wants': 420, 'savings': 300},
-    {'month': 'Aug', 'year': 2024, 'income': 5200, 'needs': 1180, 'wants': 380, 'savings': 450},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCycles();
+  }
+
+  Future<void> _loadCycles() async {
+    final cycles = await _cycleRepository.getRecent(limit: 120);
+    setState(() {
+      _cycles = cycles;
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,66 +75,115 @@ class _StatisticsTabState extends State<StatisticsTab> {
 
             // Content
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                children: [
-                  // Title + Month selector
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Statistics',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      _MonthSelector(
-                        months: _months,
-                        selectedIndex: _selectedMonthIndex,
-                        onChanged: (index) => setState(() => _selectedMonthIndex = index),
-                      ),
-                    ],
-                  ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _cycles.isEmpty
+                      ? _buildEmptyState()
+                      : _buildContent(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-                  const SizedBox(height: 24),
-
-                  // Needs
-                  _CategoryCard(
-                    title: 'Needs',
-                    color: const Color(0xFF007AFF),
-                    months: _months,
-                    valueKey: 'needs',
-                    selectedIndex: _selectedMonthIndex,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Wants
-                  _CategoryCard(
-                    title: 'Wants',
-                    color: const Color(0xFFFF9500),
-                    months: _months,
-                    valueKey: 'wants',
-                    selectedIndex: _selectedMonthIndex,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Savings
-                  _CategoryCard(
-                    title: 'Savings',
-                    color: const Color(0xFF34C759),
-                    months: _months,
-                    valueKey: 'savings',
-                    selectedIndex: _selectedMonthIndex,
-                  ),
-                ],
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.bar_chart_outlined,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No cycle history yet',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF8E8E93),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Complete your first cycle to see statistics',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: Color(0xFF8E8E93),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildContent() {
+    final displayCycles = _cycles.take(6).toList();
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      children: [
+        // Title + Cycle selector
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Statistics',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            _CycleSelector(
+              cycles: _cycles,
+              selectedIndex: _selectedIndex,
+              onChanged: (index) => setState(() => _selectedIndex = index),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 24),
+
+        // Needs
+        _CategoryCard(
+          title: 'Needs',
+          color: const Color(0xFF007AFF),
+          cycles: displayCycles,
+          getValue: (c) => c.needsSpent,
+          getIncome: (c) => c.totalIncome,
+          selectedIndex: _selectedIndex.clamp(0, displayCycles.length - 1),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Wants
+        _CategoryCard(
+          title: 'Wants',
+          color: const Color(0xFFFF9500),
+          cycles: displayCycles,
+          getValue: (c) => c.wantsSpent,
+          getIncome: (c) => c.totalIncome,
+          selectedIndex: _selectedIndex.clamp(0, displayCycles.length - 1),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Savings
+        _CategoryCard(
+          title: 'Savings',
+          color: const Color(0xFF34C759),
+          cycles: displayCycles,
+          getValue: (c) => c.savingsAdded,
+          getIncome: (c) => c.totalIncome,
+          selectedIndex: _selectedIndex.clamp(0, displayCycles.length - 1),
+        ),
+      ],
     );
   }
 
@@ -136,20 +195,23 @@ class _StatisticsTabState extends State<StatisticsTab> {
   }
 }
 
-class _MonthSelector extends StatelessWidget {
-  final List<Map<String, dynamic>> months;
+class _CycleSelector extends StatelessWidget {
+  final List<CycleHistory> cycles;
   final int selectedIndex;
   final ValueChanged<int> onChanged;
 
-  const _MonthSelector({
-    required this.months,
+  const _CycleSelector({
+    required this.cycles,
     required this.selectedIndex,
     required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    final current = months[selectedIndex];
+    if (cycles.isEmpty) return const SizedBox();
+
+    final current = cycles[selectedIndex];
+    final shortName = _getShortName(current);
 
     return Container(
       decoration: BoxDecoration(
@@ -160,7 +222,7 @@ class _MonthSelector extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           GestureDetector(
-            onTap: selectedIndex < months.length - 1
+            onTap: selectedIndex < cycles.length - 1
                 ? () => onChanged(selectedIndex + 1)
                 : null,
             child: Padding(
@@ -168,14 +230,14 @@ class _MonthSelector extends StatelessWidget {
               child: Icon(
                 Icons.chevron_left,
                 size: 20,
-                color: selectedIndex < months.length - 1
+                color: selectedIndex < cycles.length - 1
                     ? Colors.black
                     : const Color(0xFFD1D1D6),
               ),
             ),
           ),
           Text(
-            "${current['month']} '${current['year'].toString().substring(2)}",
+            shortName,
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -200,33 +262,48 @@ class _MonthSelector extends StatelessWidget {
       ),
     );
   }
+
+  String _getShortName(CycleHistory cycle) {
+    final month = cycle.cycleName.length >= 3
+        ? cycle.cycleName.substring(0, 3)
+        : cycle.cycleName;
+    final year = cycle.cycleEnd.year.toString().substring(2);
+    return "$month '$year";
+  }
 }
 
 class _CategoryCard extends StatelessWidget {
   final String title;
   final Color color;
-  final List<Map<String, dynamic>> months;
-  final String valueKey;
+  final List<CycleHistory> cycles;
+  final int Function(CycleHistory) getValue;
+  final int Function(CycleHistory) getIncome;
   final int selectedIndex;
 
   const _CategoryCard({
     required this.title,
     required this.color,
-    required this.months,
-    required this.valueKey,
+    required this.cycles,
+    required this.getValue,
+    required this.getIncome,
     required this.selectedIndex,
   });
 
   @override
   Widget build(BuildContext context) {
-    final displayMonths = months.take(6).toList().reversed.toList();
-    final maxValue = displayMonths.fold<int>(
+    if (cycles.isEmpty) return const SizedBox();
+
+    // Reverse for chronological display (oldest to newest left to right)
+    final displayCycles = cycles.reversed.toList();
+    final maxValue = displayCycles.fold<int>(
       1,
-      (max, m) => (m[valueKey] as int) > max ? (m[valueKey] as int) : max,
+      (max, c) => getValue(c) > max ? getValue(c) : max,
     );
 
-    final currentValue = months[selectedIndex][valueKey] as int;
-    final income = months[selectedIndex]['income'] as int;
+    final actualSelectedIndex = displayCycles.length - 1 - selectedIndex;
+    final selectedCycle = cycles[selectedIndex];
+    final currentValue = getValue(selectedCycle);
+    final income = getIncome(selectedCycle);
     final percentage = income > 0 ? ((currentValue / income) * 100).round() : 0;
 
     return Container(
@@ -266,7 +343,7 @@ class _CategoryCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '₹$currentValue',
+                    '₹${_formatAmount(currentValue)}',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -289,12 +366,14 @@ class _CategoryCard extends StatelessWidget {
           // Bar chart
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
-            children: displayMonths.asMap().entries.map((entry) {
+            children: displayCycles.asMap().entries.map((entry) {
               final index = entry.key;
-              final month = entry.value;
-              final value = month[valueKey] as int;
-              final isSelected = index == displayMonths.length - 1 - selectedIndex;
-              final barHeight = (value / maxValue * 60).clamp(6.0, 60.0);
+              final cycle = entry.value;
+              final value = getValue(cycle);
+              final isSelected = index == actualSelectedIndex;
+              final barHeight = maxValue > 0
+                  ? (value / maxValue * 60).clamp(6.0, 60.0)
+                  : 6.0;
 
               return Expanded(
                 child: Column(
@@ -310,7 +389,9 @@ class _CategoryCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      month['month'] as String,
+                      cycle.cycleName.length >= 3
+                          ? cycle.cycleName.substring(0, 3)
+                          : cycle.cycleName,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
@@ -338,5 +419,13 @@ class _CategoryCard extends StatelessWidget {
       default:
         return Icons.attach_money;
     }
+  }
+
+  String _formatAmount(int amountInPaise) {
+    final value = (amountInPaise / 100).round();
+    return value.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
   }
 }
