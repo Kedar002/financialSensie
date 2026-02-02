@@ -21,7 +21,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 8,
+      version: 10,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -119,6 +119,31 @@ class DatabaseService {
         amount INTEGER DEFAULT 0,
         frequency TEXT DEFAULT 'monthly',
         created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE cycle_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cycle_name TEXT NOT NULL,
+        cycle_start TEXT NOT NULL,
+        cycle_end TEXT NOT NULL,
+        total_income INTEGER NOT NULL,
+        total_spent INTEGER NOT NULL,
+        needs_spent INTEGER NOT NULL,
+        wants_spent INTEGER NOT NULL,
+        savings_added INTEGER NOT NULL,
+        remaining INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE cycle_settings (
+        id INTEGER PRIMARY KEY,
+        cycle_start TEXT NOT NULL,
+        cycle_end TEXT NOT NULL,
+        pay_cycle_day INTEGER DEFAULT 1
       )
     ''');
   }
@@ -245,6 +270,35 @@ class DatabaseService {
           amount INTEGER DEFAULT 0,
           frequency TEXT DEFAULT 'monthly',
           created_at TEXT NOT NULL
+        )
+      ''');
+    }
+
+    if (oldVersion < 9) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS cycle_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          cycle_name TEXT NOT NULL,
+          cycle_start TEXT NOT NULL,
+          cycle_end TEXT NOT NULL,
+          total_income INTEGER NOT NULL,
+          total_spent INTEGER NOT NULL,
+          needs_spent INTEGER NOT NULL,
+          wants_spent INTEGER NOT NULL,
+          savings_added INTEGER NOT NULL,
+          remaining INTEGER NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      ''');
+    }
+
+    if (oldVersion < 10) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS cycle_settings (
+          id INTEGER PRIMARY KEY,
+          cycle_start TEXT NOT NULL,
+          cycle_end TEXT NOT NULL,
+          pay_cycle_day INTEGER DEFAULT 1
         )
       ''');
     }

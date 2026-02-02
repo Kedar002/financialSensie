@@ -479,3 +479,109 @@ CREATE TABLE income_categories (
   created_at TEXT NOT NULL
 );
 ```
+
+---
+
+## Cycle History Tables
+
+### cycle_history
+
+Stores archived budget cycles for historical tracking and analytics.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier |
+| cycle_name | TEXT | NOT NULL | Month name (e.g., "January") |
+| cycle_start | TEXT | NOT NULL | ISO 8601 cycle start date |
+| cycle_end | TEXT | NOT NULL | ISO 8601 cycle end date |
+| total_income | INTEGER | NOT NULL | Total income for the cycle (paise) |
+| total_spent | INTEGER | NOT NULL | Total spent for the cycle (paise) |
+| needs_spent | INTEGER | NOT NULL | Amount spent on needs (paise) |
+| wants_spent | INTEGER | NOT NULL | Amount spent on wants (paise) |
+| savings_added | INTEGER | NOT NULL | Amount added to savings (paise) |
+| remaining | INTEGER | NOT NULL | Unspent/overspent amount (paise) |
+| created_at | TEXT | NOT NULL | ISO 8601 timestamp |
+
+**Example:**
+```sql
+INSERT INTO cycle_history (cycle_name, cycle_start, cycle_end, total_income, total_spent, needs_spent, wants_spent, savings_added, remaining, created_at)
+VALUES ('January', '2025-01-01T00:00:00.000Z', '2025-01-31T23:59:59.000Z', 5000000, 3500000, 2000000, 1000000, 500000, 1000000, '2025-02-01T00:00:00.000Z');
+```
+
+---
+
+## Cycle Repository Methods
+
+### CycleRepository
+
+| Method | Description |
+|--------|-------------|
+| `getAll()` | Returns all archived cycles ordered by end date DESC |
+| `getById(int id)` | Returns single cycle by ID |
+| `archiveCycle(CycleHistory)` | Archives a cycle to history |
+| `resetBudgetCategories()` | Resets needs/wants category amounts to 0 |
+| `completeCycle(...)` | Archives cycle and resets for new cycle |
+| `delete(int id)` | Deletes archived cycle by ID |
+
+---
+
+### Version 9 (Cycle History)
+
+```sql
+CREATE TABLE cycle_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cycle_name TEXT NOT NULL,
+  cycle_start TEXT NOT NULL,
+  cycle_end TEXT NOT NULL,
+  total_income INTEGER NOT NULL,
+  total_spent INTEGER NOT NULL,
+  needs_spent INTEGER NOT NULL,
+  wants_spent INTEGER NOT NULL,
+  savings_added INTEGER NOT NULL,
+  remaining INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+```
+
+---
+
+## Cycle Settings Table
+
+### cycle_settings
+
+Stores the current cycle configuration. Single row table (id=1).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY | Always 1 (single row) |
+| cycle_start | TEXT | NOT NULL | ISO 8601 current cycle start date |
+| cycle_end | TEXT | NOT NULL | ISO 8601 current cycle end date |
+| pay_cycle_day | INTEGER | DEFAULT 1 | Day of month when pay cycle starts (1-28) |
+
+**Note:** Cycle dates are stored and managed manually. They do NOT auto-advance based on current date. User must tap "Start New Cycle" to move to the next cycle.
+
+---
+
+## Cycle Settings Repository Methods
+
+### CycleSettingsRepository
+
+| Method | Description |
+|--------|-------------|
+| `get()` | Returns current settings (creates default if none) |
+| `update(CycleSettings)` | Updates cycle settings |
+| `updatePayCycleDay(int)` | Updates pay day and recalculates dates |
+| `startNextCycle()` | Advances to next cycle dates |
+
+---
+
+### Version 10 (Cycle Settings)
+
+```sql
+CREATE TABLE cycle_settings (
+  id INTEGER PRIMARY KEY,
+  cycle_start TEXT NOT NULL,
+  cycle_end TEXT NOT NULL,
+  pay_cycle_day INTEGER DEFAULT 1
+);
+```

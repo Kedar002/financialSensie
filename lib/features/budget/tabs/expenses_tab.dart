@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/expense.dart';
+import '../../../core/repositories/cycle_repository.dart';
+import '../../../core/repositories/cycle_settings_repository.dart';
 import '../../../core/repositories/expense_repository.dart';
 import '../../../core/repositories/income_repository.dart';
 import '../screens/cycle_complete_screen.dart';
@@ -21,12 +23,14 @@ class ExpensesTab extends StatefulWidget {
 class _ExpensesTabState extends State<ExpensesTab> {
   final ExpenseRepository _repository = ExpenseRepository();
   final IncomeRepository _incomeRepository = IncomeRepository();
+  final CycleRepository _cycleRepository = CycleRepository();
+  final CycleSettingsRepository _cycleSettingsRepository = CycleSettingsRepository();
   List<Expense> _recentExpenses = [];
   bool _isLoading = true;
   int _totalBalance = 0;
   int _totalSpent = 0;
 
-  // Cycle dates (can be made configurable later)
+  // Cycle dates (loaded from database)
   late DateTime _cycleStart;
   late DateTime _cycleEnd;
   int _payCycleDay = 1;
@@ -34,19 +38,19 @@ class _ExpensesTabState extends State<ExpensesTab> {
   @override
   void initState() {
     super.initState();
-    _calculateCycleDates();
-    _loadData();
+    _initializeData();
   }
 
-  void _calculateCycleDates() {
-    final now = DateTime.now();
-    if (now.day >= _payCycleDay) {
-      _cycleStart = DateTime(now.year, now.month, _payCycleDay);
-      _cycleEnd = DateTime(now.year, now.month + 1, _payCycleDay - 1);
-    } else {
-      _cycleStart = DateTime(now.year, now.month - 1, _payCycleDay);
-      _cycleEnd = DateTime(now.year, now.month, _payCycleDay - 1);
-    }
+  Future<void> _initializeData() async {
+    await _loadCycleSettings();
+    await _loadData();
+  }
+
+  Future<void> _loadCycleSettings() async {
+    final settings = await _cycleSettingsRepository.get();
+    _cycleStart = settings.cycleStart;
+    _cycleEnd = settings.cycleEnd;
+    _payCycleDay = settings.payCycleDay;
   }
 
   Future<void> _loadData() async {
@@ -432,22 +436,64 @@ class _ExpensesTabState extends State<ExpensesTab> {
 
     if (!mounted) return;
 
+    final cycleName = _getCycleName();
+    final needsSpent = spentByType['needs'] ?? 0;
+    final wantsSpent = spentByType['wants'] ?? 0;
+    final savingsAdded = spentByType['savings'] ?? 0;
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => CycleCompleteScreen(
-          cycleName: _getCycleName(),
+          cycleName: cycleName,
           cycleStart: _cycleStart,
           cycleEnd: _cycleEnd,
           totalIncome: _totalBalance,
           totalSpent: _totalSpent,
-          needsSpent: spentByType['needs'] ?? 0,
-          wantsSpent: spentByType['wants'] ?? 0,
-          savingsAdded: spentByType['savings'] ?? 0,
-          onStartNewCycle: () => Navigator.pop(context),
+          needsSpent: needsSpent,
+          wantsSpent: wantsSpent,
+          savingsAdded: savingsAdded,
+          onStartNewCycle: () => _startNewCycle(
+            cycleName: cycleName,
+            needsSpent: needsSpent,
+            wantsSpent: wantsSpent,
+            savingsAdded: savingsAdded,
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _startNewCycle({
+    required String cycleName,
+    required int needsSpent,
+    required int wantsSpent,
+    required int savingsAdded,
+  }) async {
+    // Archive the current cycle and reset budget categories
+    await _cycleRepository.completeCycle(
+      cycleName: cycleName,
+      cycleStart: _cycleStart,
+      cycleEnd: _cycleEnd,
+      totalIncome: _totalBalance,
+      totalSpent: _totalSpent,
+      needsSpent: needsSpent,
+      wantsSpent: wantsSpent,
+      savingsAdded: savingsAdded,
+    );
+
+    // Move to next cycle dates in database
+    final nextCycle = await _cycleSettingsRepository.startNextCycle();
+    _cycleStart = nextCycle.cycleStart;
+    _cycleEnd = nextCycle.cycleEnd;
+
+    if (!mounted) return;
+
+    // Navigate back to expenses tab
+    Navigator.pop(context);
+
+    // Reload data to reflect the reset
+    await _loadData();
   }
 
   String _getCycleName() {
@@ -545,10 +591,13 @@ class _ExpensesTabState extends State<ExpensesTab> {
                   ),
                   const SizedBox(height: 32),
                   GestureDetector(
-                    onTap: () {
+                    onTap: () async {
+                      // Save to database and update local state
+                      final updated = await _cycleSettingsRepository.updatePayCycleDay(selectedDay);
                       this.setState(() {
-                        _payCycleDay = selectedDay;
-                        _calculateCycleDates();
+                        _payCycleDay = updated.payCycleDay;
+                        _cycleStart = updated.cycleStart;
+                        _cycleEnd = updated.cycleEnd;
                       });
                       _loadData();
                       Navigator.pop(context);

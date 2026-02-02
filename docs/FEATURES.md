@@ -139,13 +139,13 @@ Shows monthly summary and recent transactions.
 ---
 
 ### Cycle Complete Screen
-**Status:** Implemented (UI only, mock data)
+**Status:** Implemented (Fully functional)
 
 An elegant dark-themed screen that appears when a budget cycle ends, showing a comprehensive review of the completed cycle.
 
 **File:** `lib/features/budget/screens/cycle_complete_screen.dart`
 
-**Trigger:** Long-press on cycle indicator in Expenses tab (for demo)
+**Trigger:** Long-press on cycle indicator in Expenses tab
 
 **Design:**
 - Dark theme (black background, white text)
@@ -170,14 +170,25 @@ CycleCompleteScreen(
   cycleName: 'January',
   cycleStart: DateTime(2025, 1, 15),
   cycleEnd: DateTime(2025, 2, 14),
-  totalIncome: 50000,
-  totalSpent: 35000,
-  needsSpent: 20000,
-  wantsSpent: 10000,
-  savingsAdded: 5000,
-  onStartNewCycle: () => Navigator.pop(context),
+  totalIncome: 50000,      // in paise
+  totalSpent: 35000,       // in paise
+  needsSpent: 20000,       // in paise
+  wantsSpent: 10000,       // in paise
+  savingsAdded: 5000,      // in paise
+  onStartNewCycle: () => { /* archive and reset */ },
 )
 ```
+
+**Start New Cycle Behavior:**
+When the user taps "Start New Cycle":
+1. **Archives cycle to history** - Saves cycle summary to `cycle_history` table
+2. **Resets budget categories** - Sets `needs_categories.amount` and `wants_categories.amount` to 0
+3. **Preserves:**
+   - Expenses (historical transactions, filtered by date range)
+   - Savings goals progress (cumulative across cycles)
+   - Income categories (recurring income sources)
+   - Category structures (just amounts reset, not deleted)
+4. **Navigates back** to expenses tab with refreshed data
 
 ---
 
