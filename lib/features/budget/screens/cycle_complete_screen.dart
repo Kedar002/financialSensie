@@ -19,14 +19,14 @@ class CycleCompleteScreen extends StatelessWidget {
 
   const CycleCompleteScreen({
     super.key,
-    this.cycleName = 'January',
+    required this.cycleName,
     required this.cycleStart,
     required this.cycleEnd,
-    this.totalIncome = 50000,
-    this.totalSpent = 35000,
-    this.needsSpent = 20000,
-    this.wantsSpent = 10000,
-    this.savingsAdded = 5000,
+    required this.totalIncome,
+    required this.totalSpent,
+    required this.needsSpent,
+    required this.wantsSpent,
+    required this.savingsAdded,
     required this.onStartNewCycle,
   });
 
@@ -369,13 +369,22 @@ class CycleCompleteScreen extends StatelessWidget {
     return ((amount / totalIncome) * 100).round();
   }
 
-  String _formatAmount(int amount) {
-    final absAmount = amount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return amount < 0 ? '-$formatted' : formatted;
+  String _formatAmount(int amountInPaise) {
+    final value = amountInPaise / 100;
+    final absValue = value.abs();
+    String formatted;
+    if (absValue == absValue.truncate()) {
+      formatted = absValue.truncate().toString().replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+        (Match m) => '${m[1]},',
+      );
+    } else {
+      formatted = absValue.toStringAsFixed(2).replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+        (Match m) => '${m[1]},',
+      );
+    }
+    return amountInPaise < 0 ? '-$formatted' : formatted;
   }
 
   String _formatDate(DateTime date) {
