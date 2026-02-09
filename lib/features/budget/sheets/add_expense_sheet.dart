@@ -591,7 +591,20 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     );
   }
 
-  void _showCategoryPicker() {
+  void _showCategoryPicker() async {
+    // Reload categories from database to ensure we have the latest data
+    final needs = await _needsRepository.getAll();
+    final wants = await _wantsRepository.getAll();
+    final savings = await _savingsRepository.getAll();
+
+    if (!mounted) return;
+
+    setState(() {
+      _needsCategories = needs;
+      _wantsCategories = wants;
+      _savingsGoals = savings;
+    });
+
     final categories = _currentCategories;
 
     if (categories.isEmpty) {
