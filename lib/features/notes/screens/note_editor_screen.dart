@@ -40,14 +40,14 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     super.dispose();
   }
 
-  Future<void> _save() async {
+  /// Saves the note and returns true if data was saved, false if empty/skipped.
+  Future<bool> _save() async {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
 
     // Don't save empty notes
     if (title.isEmpty && content.isEmpty) {
-      Navigator.pop(context, false);
-      return;
+      return false;
     }
 
     final now = DateTime.now();
@@ -71,9 +71,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       await _repository.insert(note);
     }
 
-    if (mounted) {
-      Navigator.pop(context, true);
-    }
+    return true;
   }
 
   Future<void> _delete() async {
@@ -129,22 +127,17 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     }
   }
 
-  Future<bool> _onWillPop() async {
-    if (_hasChanges) {
-      await _save();
-    }
-    return true;
-  }
-
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        if (await _onWillPop()) {
-          if (context.mounted) Navigator.pop(context, true);
+        bool saved = false;
+        if (_hasChanges) {
+          saved = await _save();
         }
+        if (context.mounted) Navigator.pop(context, saved);
       },
       child: Scaffold(
         backgroundColor: Colors.white,
@@ -167,8 +160,11 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                   children: [
                     GestureDetector(
                       onTap: () async {
-                        if (_hasChanges) await _save();
-                        if (context.mounted) Navigator.pop(context, _hasChanges);
+                        bool saved = false;
+                        if (_hasChanges) {
+                          saved = await _save();
+                        }
+                        if (context.mounted) Navigator.pop(context, saved);
                       },
                       child: Container(
                         padding: const EdgeInsets.all(8),
