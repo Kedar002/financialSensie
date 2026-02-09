@@ -8,6 +8,8 @@ import '../../../core/repositories/needs_repository.dart';
 import '../../../core/repositories/wants_repository.dart';
 import '../../../core/repositories/savings_repository.dart';
 import '../../../core/repositories/expense_repository.dart';
+import '../../../core/repositories/income_repository.dart';
+import '../../../core/repositories/cycle_settings_repository.dart';
 
 class AddExpenseSheet extends StatefulWidget {
   final String? preselectedType;
@@ -36,11 +38,19 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
   final NeedsRepository _needsRepository = NeedsRepository();
   final WantsRepository _wantsRepository = WantsRepository();
   final SavingsRepository _savingsRepository = SavingsRepository();
+  final IncomeRepository _incomeRepository = IncomeRepository();
+  final CycleSettingsRepository _cycleSettingsRepository = CycleSettingsRepository();
 
   List<NeedsCategory> _needsCategories = [];
   List<WantsCategory> _wantsCategories = [];
   List<SavingsGoal> _savingsGoals = [];
   bool _isLoading = true;
+
+  // Balance tracking for overspend warning
+  int _cycleBalance = 0; // in paise
+  int _cycleSpent = 0; // in paise
+  Map<int, int> _spentByNeedsCategory = {}; // categoryId -> paise
+  Map<int, int> _spentByWantsCategory = {}; // categoryId -> paise
 
   bool get _isEditing => widget.expense != null;
 
@@ -70,10 +80,35 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     final wants = await _wantsRepository.getAll();
     final savings = await _savingsRepository.getAll();
 
+    // Load cycle balance data
+    final cycleSettings = await _cycleSettingsRepository.get();
+    final incomeCategories = await _incomeRepository.getAll();
+    final balance = incomeCategories.fold<int>(0, (sum, cat) => sum + (cat.amount * 100));
+    final spent = await _expenseRepository.getTotalSpent(
+      start: cycleSettings.cycleStart,
+      end: cycleSettings.cycleEnd,
+    );
+
+    // Load spent per category for budget limit warnings
+    final spentByNeeds = await _expenseRepository.getSpentByCategory(
+      'needs',
+      start: cycleSettings.cycleStart,
+      end: cycleSettings.cycleEnd,
+    );
+    final spentByWants = await _expenseRepository.getSpentByCategory(
+      'wants',
+      start: cycleSettings.cycleStart,
+      end: cycleSettings.cycleEnd,
+    );
+
     setState(() {
       _needsCategories = needs;
       _wantsCategories = wants;
       _savingsGoals = savings;
+      _cycleBalance = balance;
+      _cycleSpent = spent;
+      _spentByNeedsCategory = spentByNeeds;
+      _spentByWantsCategory = spentByWants;
       _isLoading = false;
 
       // If editing, find the matching category
@@ -88,12 +123,12 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     if (expense.type == 'needs') {
       final cat = _needsCategories.where((c) => c.id == expense.categoryId).firstOrNull;
       if (cat != null) {
-        _selectedCategory = {'id': cat.id, 'name': cat.name};
+        _selectedCategory = {'id': cat.id, 'name': cat.name, 'budget': cat.amount};
       }
     } else if (expense.type == 'wants') {
       final cat = _wantsCategories.where((c) => c.id == expense.categoryId).firstOrNull;
       if (cat != null) {
-        _selectedCategory = {'id': cat.id, 'name': cat.name};
+        _selectedCategory = {'id': cat.id, 'name': cat.name, 'budget': cat.amount};
       }
     } else if (expense.type == 'savings') {
       final goal = _savingsGoals.where((g) => g.id == expense.categoryId).firstOrNull;
@@ -106,9 +141,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
   List<Map<String, dynamic>> get _currentCategories {
     switch (_selectedType) {
       case 'needs':
-        return _needsCategories.map((c) => {'id': c.id, 'name': c.name}).toList();
+        return _needsCategories.map((c) => {'id': c.id, 'name': c.name, 'budget': c.amount}).toList();
       case 'wants':
-        return _wantsCategories.map((c) => {'id': c.id, 'name': c.name}).toList();
+        return _wantsCategories.map((c) => {'id': c.id, 'name': c.name, 'budget': c.amount}).toList();
       case 'savings':
         // Include saved amount for validation
         return _savingsGoals.map((g) => {
@@ -139,6 +174,41 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
 
     if (amountInRupees > availableSavedRupees) {
       return 'Only ₹${_formatAmount(availableSavedRupees)} available in this goal';
+    }
+    return null;
+  }
+
+  // Check if adding this expense would exceed the category budget or cycle balance
+  String? get _budgetWarning {
+    if (_amount.isEmpty) return null;
+    if (_selectedType == 'savings') return null;
+
+    final amountInPaise = ((double.tryParse(_amount) ?? 0) * 100).round();
+    if (amountInPaise <= 0) return null;
+
+    final editingOffset = _isEditing ? widget.expense!.amount : 0;
+
+    // If a category is selected with a budget, check against category budget
+    if (_selectedCategory != null) {
+      final categoryBudget = _selectedCategory!['budget'] as int? ?? 0;
+      if (categoryBudget > 0) {
+        final categoryId = _selectedCategory!['id'] as int?;
+        final spentMap = _selectedType == 'needs' ? _spentByNeedsCategory : _spentByWantsCategory;
+        final alreadySpent = categoryId != null ? (spentMap[categoryId] ?? 0) : 0;
+        final categoryBudgetInPaise = categoryBudget * 100;
+        final newTotal = alreadySpent - editingOffset + amountInPaise;
+        if (newTotal > categoryBudgetInPaise) {
+          final exceededBy = ((newTotal - categoryBudgetInPaise) / 100).round();
+          return 'Exceeds ${_selectedCategory!['name']} budget by ₹${_formatAmount(exceededBy)}';
+        }
+        return null;
+      }
+    }
+
+    // Uncategorized or no budget set — fall back to overall balance check
+    if ((_cycleSpent - editingOffset + amountInPaise) > _cycleBalance) {
+      final exceededBy = ((_cycleSpent - editingOffset + amountInPaise - _cycleBalance) / 100).round();
+      return 'Exceeds balance by ₹${_formatAmount(exceededBy)}';
     }
     return null;
   }
@@ -388,7 +458,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                   fontWeight: FontWeight.w300,
                   color: _savingsValidationError != null
                       ? const Color(0xFFFF3B30)
-                      : Colors.black,
+                      : _budgetWarning != null
+                          ? const Color(0xFFFF9500)
+                          : Colors.black,
                   letterSpacing: -2,
                 ),
               ),
@@ -417,6 +489,19 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                 style: const TextStyle(
                   fontSize: 13,
                   color: Color(0xFF34C759),
+                ),
+              ),
+            ),
+
+          // Budget/balance overspend warning
+          if (_budgetWarning != null && _savingsValidationError == null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _budgetWarning!,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFFFF9500),
                 ),
               ),
             ),

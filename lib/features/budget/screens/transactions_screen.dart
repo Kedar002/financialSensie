@@ -538,6 +538,8 @@ class _TransactionTile extends StatelessWidget {
     required this.onTap,
   });
 
+  bool get _hasNote => expense.note != null && expense.note!.isNotEmpty;
+
   String get _typeLabel {
     switch (expense.type) {
       case 'needs': return 'Needs';
@@ -573,16 +575,20 @@ class _TransactionTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    expense.categoryName,
+                    _hasNote ? expense.note! : expense.categoryName,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                       color: Colors.black,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    _typeLabel,
+                    _hasNote
+                        ? '${expense.categoryName} · $_typeLabel'
+                        : _typeLabel,
                     style: const TextStyle(
                       fontSize: 13,
                       color: Color(0xFF8E8E93),

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../core/models/needs_category.dart';
 import '../../../core/models/needs_template.dart';
 import '../../../core/repositories/needs_repository.dart';
+import '../../../core/repositories/wants_repository.dart';
+import '../../../core/repositories/savings_repository.dart';
+import '../../../core/repositories/income_repository.dart';
 import '../../../core/repositories/expense_repository.dart';
 import '../sheets/templates_sheet.dart';
 
@@ -16,11 +19,15 @@ class NeedsTab extends StatefulWidget {
 
 class _NeedsTabState extends State<NeedsTab> {
   final NeedsRepository _repository = NeedsRepository();
+  final WantsRepository _wantsRepository = WantsRepository();
+  final SavingsRepository _savingsRepository = SavingsRepository();
+  final IncomeRepository _incomeRepository = IncomeRepository();
   final ExpenseRepository _expenseRepository = ExpenseRepository();
   List<NeedsCategory> _categories = [];
   Map<int, int> _spentByCategory = {};
   bool _isLoading = true;
   bool _isSummaryExpanded = false;
+  int _remainingAllocatable = 0; // in rupees
 
   @override
   void initState() {
@@ -38,9 +45,21 @@ class _NeedsTabState extends State<NeedsTab> {
       start: monthStart,
       end: monthEnd,
     );
+
+    // Compute remaining allocatable budget
+    final wantsCategories = await _wantsRepository.getAll();
+    final savingsGoals = await _savingsRepository.getAll();
+    final incomeCategories = await _incomeRepository.getAll();
+    final totalIncome = incomeCategories.fold<int>(0, (sum, c) => sum + c.amount);
+    final totalNeeds = categories.fold<int>(0, (sum, c) => sum + c.amount);
+    final totalWants = wantsCategories.fold<int>(0, (sum, c) => sum + c.amount);
+    final totalSavings = savingsGoals.fold<int>(0, (sum, g) => sum + g.monthly);
+    final remaining = totalIncome - totalNeeds - totalWants - totalSavings;
+
     setState(() {
       _categories = categories;
       _spentByCategory = spent;
+      _remainingAllocatable = remaining;
       _isLoading = false;
     });
   }
@@ -336,6 +355,7 @@ class _NeedsTabState extends State<NeedsTab> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _AddCategorySheet(
+        remainingAllocatable: _remainingAllocatable,
         onSave: (name, amount, icon) async {
           final category = NeedsCategory(
             name: name,
@@ -350,12 +370,15 @@ class _NeedsTabState extends State<NeedsTab> {
   }
 
   void _showEditCategory(BuildContext context, NeedsCategory category) {
+    // Add back the current category's amount since it can be reallocated
+    final remainingForEdit = _remainingAllocatable + category.amount;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _EditCategorySheet(
         category: category,
+        remainingAllocatable: remainingForEdit,
         onSave: (name, amount, icon) async {
           final updated = category.copyWith(
             name: name,
@@ -444,8 +467,12 @@ class _NeedsTabState extends State<NeedsTab> {
 
 class _AddCategorySheet extends StatefulWidget {
   final Future<void> Function(String name, int amount, String icon) onSave;
+  final int remainingAllocatable;
 
-  const _AddCategorySheet({required this.onSave});
+  const _AddCategorySheet({
+    required this.onSave,
+    required this.remainingAllocatable,
+  });
 
   @override
   State<_AddCategorySheet> createState() => _AddCategorySheetState();
@@ -455,6 +482,17 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
   String _selectedIcon = 'category_outlined';
+
+  bool get _wouldExceedBalance {
+    final amount = int.tryParse(_amountController.text) ?? 0;
+    return amount > 0 && amount > widget.remainingAllocatable;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController.addListener(() => setState(() {}));
+  }
 
   final List<Map<String, dynamic>> _icons = [
     {'name': 'home_outlined', 'icon': Icons.home_outlined, 'label': 'Home'},
@@ -592,6 +630,28 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
                   ),
                 ),
               ),
+
+              // Overspend warning
+              if (_wouldExceedBalance)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 14, color: Color(0xFFFF9500)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Exceeds balance by ₹${_formatAmount((int.tryParse(_amountController.text) ?? 0) - widget.remainingAllocatable)}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFFFF9500),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               const SizedBox(height: 24),
 
               // Save button
@@ -628,17 +688,26 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
       ),
     );
   }
+
+  String _formatAmount(int amount) {
+    return amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+  }
 }
 
 class _EditCategorySheet extends StatefulWidget {
   final NeedsCategory category;
   final Future<void> Function(String name, int amount, String icon) onSave;
   final Future<void> Function() onDelete;
+  final int remainingAllocatable;
 
   const _EditCategorySheet({
     required this.category,
     required this.onSave,
     required this.onDelete,
+    required this.remainingAllocatable,
   });
 
   @override
@@ -649,6 +718,11 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
   late TextEditingController _nameController;
   late TextEditingController _amountController;
   late String _selectedIcon;
+
+  bool get _wouldExceedBalance {
+    final amount = int.tryParse(_amountController.text) ?? 0;
+    return amount > 0 && amount > widget.remainingAllocatable;
+  }
 
   final List<Map<String, dynamic>> _icons = [
     {'name': 'home_outlined', 'icon': Icons.home_outlined, 'label': 'Home'},
@@ -670,6 +744,7 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
       text: widget.category.amount > 0 ? widget.category.amount.toString() : '',
     );
     _selectedIcon = widget.category.icon;
+    _amountController.addListener(() => setState(() {}));
   }
 
   @override
@@ -677,6 +752,13 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
     _nameController.dispose();
     _amountController.dispose();
     super.dispose();
+  }
+
+  String _formatAmount(int amount) {
+    return amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
   }
 
   @override
@@ -796,6 +878,28 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
                   ),
                 ),
               ),
+
+              // Overspend warning
+              if (_wouldExceedBalance)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 14, color: Color(0xFFFF9500)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Exceeds balance by ₹${_formatAmount((int.tryParse(_amountController.text) ?? 0) - widget.remainingAllocatable)}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFFFF9500),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               const SizedBox(height: 24),
 
               // Save button
