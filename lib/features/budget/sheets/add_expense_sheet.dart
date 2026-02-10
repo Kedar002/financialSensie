@@ -32,6 +32,8 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
   String _selectedType = 'needs';
   Map<String, dynamic>? _selectedCategory;
   final _noteController = TextEditingController();
+  final _amountController = TextEditingController();
+  final _amountFocusNode = FocusNode();
   DateTime _selectedDate = DateTime.now();
 
   final ExpenseRepository _expenseRepository = ExpenseRepository();
@@ -68,11 +70,18 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       } else {
         _amount = displayAmount.toStringAsFixed(2);
       }
+      _amountController.text = _amount;
       _selectedType = widget.expense!.type;
       _noteController.text = widget.expense!.note ?? '';
       _selectedDate = widget.expense!.date;
     }
+    _amountController.addListener(_onAmountChanged);
     _loadCategories();
+
+    // Auto-focus the amount field
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _amountFocusNode.requestFocus();
+    });
   }
 
   Future<void> _loadCategories() async {
@@ -222,37 +231,17 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
 
   @override
   void dispose() {
+    _amountController.removeListener(_onAmountChanged);
+    _amountController.dispose();
+    _amountFocusNode.dispose();
     _noteController.dispose();
     super.dispose();
   }
 
-  void _onKeyPress(String key) {
-    HapticFeedback.lightImpact();
+  void _onAmountChanged() {
     setState(() {
-      if (key == '⌫') {
-        if (_amount.isNotEmpty) {
-          _amount = _amount.substring(0, _amount.length - 1);
-        }
-      } else if (key == '.') {
-        if (!_amount.contains('.')) {
-          _amount = _amount.isEmpty ? '0.' : '$_amount.';
-        }
-      } else {
-        if (_amount.contains('.')) {
-          final parts = _amount.split('.');
-          if (parts[1].length < 2) {
-            _amount += key;
-          }
-        } else if (_amount.length < 7) {
-          _amount += key;
-        }
-      }
+      _amount = _amountController.text;
     });
-  }
-
-  String get _displayAmount {
-    if (_amount.isEmpty) return '0';
-    return _amount;
   }
 
   Future<void> _save() async {
@@ -436,35 +425,59 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
           const SizedBox(height: 32),
 
           // Amount
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text(
-                  '₹',
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w300,
-                    color: Color(0xFFAEAEB2),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    '₹',
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w300,
+                      color: Color(0xFFAEAEB2),
+                    ),
                   ),
                 ),
-              ),
-              Text(
-                _displayAmount,
-                style: TextStyle(
-                  fontSize: 64,
-                  fontWeight: FontWeight.w300,
-                  color: _savingsValidationError != null
-                      ? const Color(0xFFFF3B30)
-                      : _budgetWarning != null
-                          ? const Color(0xFFFF9500)
-                          : Colors.black,
-                  letterSpacing: -2,
+                Flexible(
+                  child: IntrinsicWidth(
+                    child: TextField(
+                      controller: _amountController,
+                      focusNode: _amountFocusNode,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d{0,7}\.?\d{0,2}')),
+                      ],
+                      style: TextStyle(
+                        fontSize: 64,
+                        fontWeight: FontWeight.w300,
+                        color: _savingsValidationError != null
+                            ? const Color(0xFFFF3B30)
+                            : _budgetWarning != null
+                                ? const Color(0xFFFF9500)
+                                : Colors.black,
+                        letterSpacing: -2,
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: '0',
+                        hintStyle: TextStyle(
+                          fontSize: 64,
+                          fontWeight: FontWeight.w300,
+                          color: Color(0xFFAEAEB2),
+                          letterSpacing: -2,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                        isDense: true,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
 
           // Savings validation error
@@ -621,22 +634,6 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
           ),
 
           const Spacer(),
-
-          // Keypad
-          Container(
-            color: const Color(0xFFF7F7F7),
-            child: SafeArea(
-              top: false,
-              child: Column(
-                children: [
-                  _buildKeypadRow(['1', '2', '3']),
-                  _buildKeypadRow(['4', '5', '6']),
-                  _buildKeypadRow(['7', '8', '9']),
-                  _buildKeypadRow(['.', '0', '⌫']),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -787,34 +784,4 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     );
   }
 
-  Widget _buildKeypadRow(List<String> keys) {
-    return Row(
-      children: keys.map((key) {
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => _onKeyPress(key),
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              height: 54,
-              alignment: Alignment.center,
-              child: key == '⌫'
-                  ? const Icon(
-                      Icons.backspace_outlined,
-                      size: 22,
-                      color: Colors.black,
-                    )
-                  : Text(
-                      key,
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w300,
-                        color: Colors.black,
-                      ),
-                    ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
 }

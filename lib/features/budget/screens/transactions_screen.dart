@@ -438,18 +438,37 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         final transactions = grouped[dateKey]!;
         final date = transactions.first.date;
 
+        // Calculate daily total (sum of all spending, exclude income/withdrawal)
+        final dayTotal = transactions
+            .where((e) => e.type != 'income' && e.type != 'savings_withdrawal')
+            .fold<int>(0, (sum, e) => sum + e.amount);
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(left: 4, top: 12, bottom: 8),
-              child: Text(
-                _formatDate(date),
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF8E8E93),
-                ),
+              padding: const EdgeInsets.only(left: 4, top: 12, bottom: 8, right: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _formatDate(date),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF8E8E93),
+                    ),
+                  ),
+                  if (dayTotal > 0)
+                    Text(
+                      '₹${_formatAmount(dayTotal)}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF8E8E93),
+                      ),
+                    ),
+                ],
               ),
             ),
             Container(
