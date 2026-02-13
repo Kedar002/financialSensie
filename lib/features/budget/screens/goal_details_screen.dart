@@ -74,10 +74,10 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
     final hasActivity = _goal.saved > 0;
 
     return PopScope(
-      canPop: true,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
-        if (didPop && _hasChanges) {
-          Navigator.of(context).pop(true);
+        if (!didPop) {
+          Navigator.of(context).pop(_hasChanges);
         }
       },
       child: Scaffold(
