@@ -321,7 +321,7 @@ class _WantsTabState extends State<WantsTab> {
                               crossAxisCount: 2,
                               mainAxisSpacing: 10,
                               crossAxisSpacing: 10,
-                              childAspectRatio: 1.4,
+                              childAspectRatio: 1.15,
                             ),
                             itemCount: _categories.length,
                             itemBuilder: (context, index) {
@@ -1025,7 +1025,7 @@ class _SummaryRow extends StatelessWidget {
 class _CategoryCard extends StatelessWidget {
   final String name;
   final int budget;
-  final int spent;
+  final int spent; // in paise
   final IconData icon;
 
   const _CategoryCard({
@@ -1035,20 +1035,20 @@ class _CategoryCard extends StatelessWidget {
     required this.icon,
   });
 
-  String _formatAmount(int amount) {
-    // Amount is in paise, convert to rupees
-    final rupees = amount / 100;
-    if (rupees == rupees.truncate()) {
-      return rupees.truncate().toString();
-    }
-    return rupees.toStringAsFixed(2);
+  String _formatRupees(int rupees) {
+    return rupees.abs().toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final budgetInPaise = budget * 100; // Convert budget to paise for comparison
+    final budgetInPaise = budget * 100;
     final progress = budgetInPaise > 0 ? (spent / budgetInPaise).clamp(0.0, 1.0) : 0.0;
     final isOverBudget = spent > budgetInPaise && budget > 0;
+    final spentRupees = (spent / 100).round();
+    final remainingRupees = budget - spentRupees;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1059,6 +1059,7 @@ class _CategoryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Icon + Budget
           Row(
             children: [
               Container(
@@ -1077,40 +1078,64 @@ class _CategoryCard extends StatelessWidget {
               const Spacer(),
               if (budget > 0)
                 Text(
-                  '₹${_formatAmount(spent)}',
-                  style: TextStyle(
+                  '₹${_formatRupees(budget)}',
+                  style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isOverBudget ? const Color(0xFFFF3B30) : Colors.black87,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF8E8E93),
                   ),
                 ),
             ],
           ),
           const Spacer(),
+          // Name
           Text(
             name,
             style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
               color: Colors.black,
             ),
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
-          Text(
-            budget > 0 ? '₹$budget budget' : 'No budget',
-            style: TextStyle(
-              fontSize: 12,
-              color: budget > 0 ? const Color(0xFF8E8E93) : const Color(0xFFC7C7CC),
-            ),
-          ),
           if (budget > 0) ...[
             const SizedBox(height: 8),
+            // Spent + Left
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '₹${_formatRupees(spentRupees)} spent',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isOverBudget
+                          ? const Color(0xFFFF3B30)
+                          : const Color(0xFF8E8E93),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  isOverBudget
+                      ? '₹${_formatRupees(remainingRupees.abs())} over'
+                      : '₹${_formatRupees(remainingRupees)} left',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isOverBudget
+                        ? const Color(0xFFFF3B30)
+                        : const Color(0xFFC7C7CC),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Progress bar
             Container(
-              height: 4,
+              height: 3,
               decoration: BoxDecoration(
                 color: const Color(0xFFF2F2F7),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(1.5),
               ),
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
@@ -1118,12 +1143,22 @@ class _CategoryCard extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     color: isOverBudget ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: BorderRadius.circular(1.5),
                   ),
                 ),
               ),
             ),
-          ],
+          ] else
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text(
+                'No budget',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFC7C7CC),
+                ),
+              ),
+            ),
         ],
       ),
     );
