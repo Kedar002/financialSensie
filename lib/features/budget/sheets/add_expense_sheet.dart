@@ -246,6 +246,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
 
   Future<void> _save() async {
     if (_amount.isEmpty) return;
+    if (_selectedCategory == null) return;
 
     // Validate savings spending
     if (_savingsValidationError != null) {
@@ -406,13 +407,13 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: _amount.isNotEmpty && _savingsValidationError == null ? _save : null,
+                  onTap: _amount.isNotEmpty && _selectedCategory != null && _savingsValidationError == null ? _save : null,
                   child: Text(
                     'Save',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
-                      color: _amount.isNotEmpty && _savingsValidationError == null
+                      color: _amount.isNotEmpty && _selectedCategory != null && _savingsValidationError == null
                           ? const Color(0xFF007AFF)
                           : const Color(0xFFD1D1D6),
                     ),
@@ -679,12 +680,27 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     final wants = await _wantsRepository.getAll();
     final savings = await _savingsRepository.getAll();
 
+    // Reload spent data for accurate balance display
+    final cycleSettings = await _cycleSettingsRepository.get();
+    final spentByNeeds = await _expenseRepository.getSpentByCategory(
+      'needs',
+      start: cycleSettings.cycleStart,
+      end: cycleSettings.cycleEnd,
+    );
+    final spentByWants = await _expenseRepository.getSpentByCategory(
+      'wants',
+      start: cycleSettings.cycleStart,
+      end: cycleSettings.cycleEnd,
+    );
+
     if (!mounted) return;
 
     setState(() {
       _needsCategories = needs;
       _wantsCategories = wants;
       _savingsGoals = savings;
+      _spentByNeedsCategory = spentByNeeds;
+      _spentByWantsCategory = spentByWants;
     });
 
     final categories = _currentCategories;
@@ -698,6 +714,8 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       );
       return;
     }
+
+    final currentAmountInPaise = ((double.tryParse(_amount) ?? 0) * 100).round();
 
     showModalBottomSheet(
       context: context,
@@ -724,13 +742,36 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
               ),
               const SizedBox(height: 8),
               ...categories.map((cat) {
+                // Savings-specific logic
                 final savedAmount = cat['saved'] as int?;
                 final hasNoFunds = _selectedType == 'savings' && (savedAmount == null || savedAmount == 0);
+
+                // Needs/Wants balance logic
+                bool exceedsBudget = false;
+                int? remainingRupees;
+                bool hasBudget = false;
+
+                if (_selectedType != 'savings') {
+                  final catId = cat['id'] as int?;
+                  final budget = cat['budget'] as int? ?? 0;
+                  hasBudget = budget > 0;
+                  if (hasBudget && catId != null) {
+                    final spentMap = _selectedType == 'needs' ? _spentByNeedsCategory : _spentByWantsCategory;
+                    final spentInPaise = spentMap[catId] ?? 0;
+                    final editingOffset = _isEditing && widget.expense?.categoryId == catId && widget.expense?.type == _selectedType
+                        ? widget.expense!.amount : 0;
+                    final remainingInPaise = (budget * 100) - spentInPaise + editingOffset;
+                    remainingRupees = (remainingInPaise / 100).round();
+                    exceedsBudget = currentAmountInPaise > 0 && currentAmountInPaise > remainingInPaise;
+                  }
+                }
+
+                final isDisabled = hasNoFunds || exceedsBudget;
 
                 return Column(
                     children: [
                       GestureDetector(
-                        onTap: hasNoFunds ? null : () {
+                        onTap: isDisabled ? null : () {
                           setState(() => _selectedCategory = cat);
                           Navigator.pop(context);
                         },
@@ -745,13 +786,14 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 20,
-                                  color: hasNoFunds
+                                  color: isDisabled
                                       ? const Color(0xFFC7C7CC)
                                       : _selectedCategory?['name'] == cat['name']
                                           ? const Color(0xFF007AFF)
                                           : Colors.black,
                                 ),
                               ),
+                              // Savings: show available amount
                               if (_selectedType == 'savings' && savedAmount != null)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 4),
@@ -764,6 +806,34 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                       color: hasNoFunds
                                           ? const Color(0xFFC7C7CC)
                                           : const Color(0xFF34C759),
+                                    ),
+                                  ),
+                                ),
+                              // Needs/Wants with budget: show remaining balance
+                              if (_selectedType != 'savings' && hasBudget)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    remainingRupees != null && remainingRupees > 0
+                                        ? '₹${_formatAmount(remainingRupees)} left'
+                                        : 'Fully spent',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: exceedsBudget || (remainingRupees != null && remainingRupees <= 0)
+                                          ? const Color(0xFFFF3B30)
+                                          : const Color(0xFF34C759),
+                                    ),
+                                  ),
+                                ),
+                              // Needs/Wants without budget
+                              if (_selectedType != 'savings' && !hasBudget)
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    'No budget set',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF8E8E93),
                                     ),
                                   ),
                                 ),
