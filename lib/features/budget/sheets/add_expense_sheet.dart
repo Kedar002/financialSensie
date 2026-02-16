@@ -720,8 +720,12 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
         margin: const EdgeInsets.all(8),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
@@ -741,7 +745,11 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                 ),
               ),
               const SizedBox(height: 8),
-              ...categories.map((cat) {
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: categories.map((cat) {
                 // Savings-specific logic
                 final savedAmount = cat['saved'] as int?;
                 final hasNoFunds = _selectedType == 'savings' && (savedAmount == null || savedAmount == 0);
@@ -845,7 +853,10 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                         const Divider(height: 1, color: Color(0xFFF2F2F2)),
                     ],
                   );
-              }),
+              }).toList(),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 8),
             ],
           ),
