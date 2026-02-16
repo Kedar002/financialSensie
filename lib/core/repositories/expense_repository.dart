@@ -135,6 +135,26 @@ class ExpenseRepository {
     return result;
   }
 
+  Future<Map<String, int>> getSpentByPaymentMethod({DateTime? start, DateTime? end}) async {
+    final expenses = start != null && end != null
+        ? await getByDateRange(start, end)
+        : await getAll();
+
+    final result = <String, int>{
+      'cash': 0,
+      'card': 0,
+    };
+
+    for (final expense in expenses) {
+      if (expense.type != 'income' && expense.type != 'savings_withdrawal') {
+        final method = expense.paymentMethod == 'card' ? 'card' : 'cash';
+        result[method] = result[method]! + expense.amount;
+      }
+    }
+
+    return result;
+  }
+
   /// Get spent amounts grouped by category ID for a specific type
   Future<Map<int, int>> getSpentByCategory(String type, {DateTime? start, DateTime? end}) async {
     final expenses = start != null && end != null

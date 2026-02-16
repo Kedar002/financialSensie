@@ -385,6 +385,7 @@ Stores all expense and income transactions.
 | category_id | INTEGER | NULLABLE | Reference to category table (based on type) |
 | category_name | TEXT | NOT NULL | Category name for display |
 | note | TEXT | NULLABLE | Optional note for the transaction |
+| payment_method | TEXT | DEFAULT 'cash' | Payment method: 'cash' or 'card' |
 | date | TEXT | NOT NULL | ISO 8601 transaction date |
 | created_at | TEXT | NOT NULL | ISO 8601 timestamp |
 
@@ -401,8 +402,8 @@ Stores all expense and income transactions.
 
 **Example:**
 ```sql
-INSERT INTO expenses (amount, type, category_id, category_name, note, date, created_at)
-VALUES (45000, 'needs', 1, 'Groceries', 'Weekly shopping', '2025-01-31T10:00:00.000Z', '2025-01-31T10:00:00.000Z');
+INSERT INTO expenses (amount, type, category_id, category_name, note, payment_method, date, created_at)
+VALUES (45000, 'needs', 1, 'Groceries', 'Weekly shopping', 'cash', '2025-01-31T10:00:00.000Z', '2025-01-31T10:00:00.000Z');
 ```
 
 ---
@@ -424,6 +425,7 @@ VALUES (45000, 'needs', 1, 'Groceries', 'Weekly shopping', '2025-01-31T10:00:00.
 | `getTotalIncome({DateTime? start, DateTime? end})` | Returns sum of income |
 | `getTotalSpent({DateTime? start, DateTime? end})` | Returns sum of expenses (excludes savings_withdrawal) |
 | `getSpentByType({DateTime? start, DateTime? end})` | Returns spending breakdown by type (excludes savings_withdrawal) |
+| `getSpentByPaymentMethod({DateTime? start, DateTime? end})` | Returns spending breakdown by payment method {'cash': amount, 'card': amount} |
 
 ---
 
@@ -441,6 +443,14 @@ CREATE TABLE expenses (
   created_at TEXT NOT NULL
 );
 ```
+
+### Version 12 (Payment Method)
+
+```sql
+ALTER TABLE expenses ADD COLUMN payment_method TEXT DEFAULT 'cash';
+```
+
+Adds payment method tracking to expenses. Existing rows default to `'cash'`. Values: `'cash'` or `'card'`.
 
 ---
 

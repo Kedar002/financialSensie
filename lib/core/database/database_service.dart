@@ -21,7 +21,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 11,
+      version: 12,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -107,6 +107,7 @@ class DatabaseService {
         category_id INTEGER,
         category_name TEXT NOT NULL,
         note TEXT,
+        payment_method TEXT DEFAULT 'cash',
         date TEXT NOT NULL,
         created_at TEXT NOT NULL
       )
@@ -365,6 +366,12 @@ class DatabaseService {
           FOREIGN KEY (person_id) REFERENCES people (id) ON DELETE CASCADE
         )
       ''');
+    }
+
+    if (oldVersion < 12) {
+      await db.execute(
+        "ALTER TABLE expenses ADD COLUMN payment_method TEXT DEFAULT 'cash'"
+      );
     }
   }
 }

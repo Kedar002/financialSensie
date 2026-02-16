@@ -5,6 +5,7 @@ class Expense {
   final int? categoryId;
   final String categoryName;
   final String? note;
+  final String paymentMethod; // 'cash' or 'card'
   final DateTime date;
   final DateTime createdAt;
 
@@ -15,6 +16,7 @@ class Expense {
     this.categoryId,
     required this.categoryName,
     this.note,
+    this.paymentMethod = 'cash',
     DateTime? date,
     DateTime? createdAt,
   })  : date = date ?? DateTime.now(),
@@ -32,6 +34,7 @@ class Expense {
       'category_id': categoryId,
       'category_name': categoryName,
       'note': note,
+      'payment_method': paymentMethod,
       'date': date.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
     };
@@ -45,6 +48,7 @@ class Expense {
       categoryId: map['category_id'] as int?,
       categoryName: map['category_name'] as String,
       note: map['note'] as String?,
+      paymentMethod: map['payment_method'] as String? ?? 'cash',
       date: DateTime.parse(map['date'] as String),
       createdAt: DateTime.parse(map['created_at'] as String),
     );
@@ -57,6 +61,7 @@ class Expense {
     int? categoryId,
     String? categoryName,
     String? note,
+    String? paymentMethod,
     DateTime? date,
     DateTime? createdAt,
   }) {
@@ -67,6 +72,7 @@ class Expense {
       categoryId: categoryId ?? this.categoryId,
       categoryName: categoryName ?? this.categoryName,
       note: note ?? this.note,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
       date: date ?? this.date,
       createdAt: createdAt ?? this.createdAt,
     );

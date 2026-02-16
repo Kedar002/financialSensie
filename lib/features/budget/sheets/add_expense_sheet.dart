@@ -54,6 +54,8 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
   Map<int, int> _spentByNeedsCategory = {}; // categoryId -> paise
   Map<int, int> _spentByWantsCategory = {}; // categoryId -> paise
 
+  String _paymentMethod = 'cash';
+
   bool get _isEditing => widget.expense != null;
 
   @override
@@ -72,6 +74,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       }
       _amountController.text = _amount;
       _selectedType = widget.expense!.type;
+      _paymentMethod = widget.expense!.paymentMethod;
       _noteController.text = widget.expense!.note ?? '';
       _selectedDate = widget.expense!.date;
     }
@@ -272,6 +275,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       categoryId: _selectedCategory?['id'] as int?,
       categoryName: _selectedCategory?['name'] as String? ?? 'Uncategorized',
       note: _noteController.text.isEmpty ? null : _noteController.text,
+      paymentMethod: _paymentMethod,
       date: normalizedDate,
     );
 
@@ -605,6 +609,51 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                   ],
                 ),
               ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Payment method
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(left: 16),
+                  child: Text(
+                    'Paid with',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFF8E8E93),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: () => setState(() => _paymentMethod = 'cash'),
+                  child: Text(
+                    'Cash',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: _paymentMethod == 'cash' ? FontWeight.w600 : FontWeight.w400,
+                      color: _paymentMethod == 'cash' ? Colors.black : const Color(0xFFAEAEB2),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: () => setState(() => _paymentMethod = 'card'),
+                  child: Text(
+                    'Credit Card',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: _paymentMethod == 'card' ? FontWeight.w600 : FontWeight.w400,
+                      color: _paymentMethod == 'card' ? Colors.black : const Color(0xFFAEAEB2),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
 

@@ -152,6 +152,13 @@ Shows monthly summary and recent transactions.
 - Income/Spent summary cards
 - Recent transactions list
 
+**Payment Method Feature:**
+- Each expense can be tagged as `cash` or `card` (default: cash)
+- Add Expense sheet includes a subtle text toggle: "Paid with Cash / Credit Card"
+- Spent card on dashboard shows cash/card breakdown when card expenses exist (e.g., "₹5,500 cash · ₹3,000 card")
+- Transaction tiles append "Card" label for credit card expenses
+- Expense detail sheet shows payment method (Cash or Card) in the subtitle line
+
 ---
 
 ### Cycle Complete Screen

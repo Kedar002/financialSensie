@@ -29,6 +29,8 @@ class _ExpensesTabState extends State<ExpensesTab> {
   bool _isLoading = true;
   int _totalBalance = 0;
   int _totalSpent = 0;
+  int _cashSpent = 0;
+  int _cardSpent = 0;
 
   // Cycle dates (loaded from database)
   late DateTime _cycleStart;
@@ -56,6 +58,7 @@ class _ExpensesTabState extends State<ExpensesTab> {
   Future<void> _loadData() async {
     final expenses = await _repository.getRecent(limit: 5);
     final spent = await _repository.getTotalSpent(start: _cycleStart, end: _cycleEnd);
+    final spentByMethod = await _repository.getSpentByPaymentMethod(start: _cycleStart, end: _cycleEnd);
 
     // Balance = Sum of all income category amounts
     final incomeCategories = await _incomeRepository.getAll();
@@ -65,6 +68,8 @@ class _ExpensesTabState extends State<ExpensesTab> {
       _recentExpenses = expenses;
       _totalBalance = balance;
       _totalSpent = spent;
+      _cashSpent = spentByMethod['cash'] ?? 0;
+      _cardSpent = spentByMethod['card'] ?? 0;
       _isLoading = false;
     });
   }
@@ -189,88 +194,103 @@ class _ExpensesTabState extends State<ExpensesTab> {
                                 ),
                               ),
                               const SizedBox(height: 24),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () async {
-                                        await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(builder: (_) => const IncomeScreen()),
-                                        );
-                                        _loadData();
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF2F2F7),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text(
-                                              'Balance',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: Color(0xFF8E8E93),
+                              IntrinsicHeight(
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () async {
+                                          await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(builder: (_) => const IncomeScreen()),
+                                          );
+                                          _loadData();
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.all(16),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF2F2F7),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text(
+                                                'Balance',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: Color(0xFF8E8E93),
+                                                ),
                                               ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '₹${_formatAmount(_totalBalance)}',
-                                              style: const TextStyle(
-                                                fontSize: 22,
-                                                fontWeight: FontWeight.w600,
-                                                color: Color(0xFF34C759),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '₹${_formatAmount(_totalBalance)}',
+                                                style: const TextStyle(
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Color(0xFF34C759),
+                                                ),
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () async {
-                                        await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(builder: (_) => const SpentScreen()),
-                                        );
-                                        _loadData();
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF2F2F7),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text(
-                                              'Spent',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: Color(0xFF8E8E93),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '₹${_formatAmount(_totalSpent)}',
-                                              style: const TextStyle(
-                                                fontSize: 22,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.black,
-                                              ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () async {
+                                          await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(builder: (_) => const SpentScreen()),
+                                          );
+                                          _loadData();
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.all(16),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF2F2F7),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text(
+                                                'Spent',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: Color(0xFF8E8E93),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '₹${_formatAmount(_totalSpent)}',
+                                                style: const TextStyle(
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.black,
+                                                ),
+                                              ),
+                                              if (_cardSpent > 0) ...[
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  _cashSpent > 0
+                                                      ? '₹${_formatAmount(_cashSpent)} cash · ₹${_formatAmount(_cardSpent)} card'
+                                                      : '₹${_formatAmount(_cardSpent)} on card',
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    color: Color(0xFF8E8E93),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -772,6 +792,17 @@ class _TransactionTile extends StatelessWidget {
     }
   }
 
+  String get _subtitle {
+    final parts = <String>[];
+    if (_hasNote) parts.add(expense.categoryName);
+    parts.add(_typeLabel);
+    parts.add(formatDate(expense.date));
+    if (expense.isExpense && expense.paymentMethod == 'card') {
+      parts.add('Card');
+    }
+    return parts.join(' · ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final isIncome = expense.type == 'income';
@@ -807,9 +838,7 @@ class _TransactionTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    _hasNote
-                        ? '${expense.categoryName} · $_typeLabel · ${formatDate(expense.date)}'
-                        : '$_typeLabel · ${formatDate(expense.date)}',
+                    _subtitle,
                     style: const TextStyle(
                       fontSize: 14,
                       color: Color(0xFF8E8E93),
@@ -902,7 +931,7 @@ class _ExpenseDetailSheet extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '$_typeLabel · ${formatDate(expense.date)}',
+                '$_typeLabel · ${formatDate(expense.date)} · ${expense.paymentMethod == 'card' ? 'Card' : 'Cash'}',
                 style: const TextStyle(
                   fontSize: 15,
                   color: Color(0xFF8E8E93),

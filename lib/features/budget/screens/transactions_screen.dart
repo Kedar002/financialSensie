@@ -605,9 +605,11 @@ class _TransactionTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    _hasNote
-                        ? '${expense.categoryName} · $_typeLabel'
-                        : _typeLabel,
+                    [
+                      if (_hasNote) expense.categoryName,
+                      _typeLabel,
+                      if (expense.isExpense && expense.paymentMethod == 'card') 'Card',
+                    ].join(' · '),
                     style: const TextStyle(
                       fontSize: 13,
                       color: Color(0xFF8E8E93),
@@ -704,7 +706,7 @@ class _ExpenseDetailSheet extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '$_typeLabel · ${_formatDate(expense.date)}',
+                '$_typeLabel · ${_formatDate(expense.date)} · ${expense.paymentMethod == 'card' ? 'Card' : 'Cash'}',
                 style: const TextStyle(
                   fontSize: 15,
                   color: Color(0xFF8E8E93),
