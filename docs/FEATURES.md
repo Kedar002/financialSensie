@@ -142,15 +142,19 @@ See `docs/SAVINGS_LOGIC.md` for detailed documentation on how deposits and withd
 ---
 
 ### Expenses Tab
-**Status:** Implemented (UI only, mock data)
+**Status:** Implemented (Fully functional)
 
 Shows monthly summary and recent transactions.
 
 **Components:**
-- Cycle indicator (tap to edit, long-press for cycle review)
+- Cycle indicator (displays current cycle dates and days remaining)
 - Remaining balance display
 - Income/Spent summary cards
 - Recent transactions list
+
+**Header Actions:**
+- Cycle icon (refresh) - Opens Cycle Management screen
+- Add icon (+) - Opens Add Expense sheet
 
 **Payment Method Feature:**
 - Each expense can be tagged as `cash` or `card` (default: cash)
@@ -161,6 +165,31 @@ Shows monthly summary and recent transactions.
 
 ---
 
+### Cycle Management Screen
+**Status:** Implemented (Fully functional)
+
+A dedicated screen for managing the budget cycle with two primary actions.
+
+**File:** `lib/features/budget/screens/cycle_management_screen.dart`
+
+**Navigation:** Expenses tab → Cycle icon (refresh) in header
+
+**Features:**
+- Shows current cycle dates (e.g., "Jan 5 – Feb 4")
+- Displays days remaining in cycle
+- Two action cards:
+  1. **End Current Cycle** (Primary) - Opens cycle complete screen
+  2. **Pay Cycle Settings** (Secondary) - Configure payday
+
+**Design Principles:**
+- Simple, focused screen with ONE primary action
+- Clean white background with minimal cards
+- Generous whitespace (24px padding)
+- Consistent with app's design language
+- Passes the Steve Jobs Design Standard
+
+---
+
 ### Cycle Complete Screen
 **Status:** Implemented (Fully functional)
 
@@ -168,7 +197,7 @@ An elegant dark-themed screen that appears when a budget cycle ends, showing a c
 
 **File:** `lib/features/budget/screens/cycle_complete_screen.dart`
 
-**Trigger:** Long-press on cycle indicator in Expenses tab
+**Navigation:** Cycle Management screen → End Current Cycle
 
 **Design:**
 - Dark theme (black background, white text)
