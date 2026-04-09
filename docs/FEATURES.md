@@ -473,3 +473,72 @@ Calculate how long it will take to pay off a loan given a fixed EMI.
 - Human-readable duration format (e.g., "3 yrs 6 mos")
 - Subtle error display (no harsh red colors)
 - Real-time calculation as user types
+
+---
+
+## Location Tracker (Hidden Feature)
+
+Hidden behind a 5-second long press on the FD Calculator screen. Typing "hdelete" in the confirmation dialog opens the tracker.
+
+### Entry Point
+**File:** `lib/features/calculator/fd_calculator_screen.dart`
+- 5-second long press triggers confirmation popup
+- Typing "delete" opens data deletion screen
+- Typing "hdelete" opens location tracker
+
+### Role Selection
+**File:** `lib/features/tracker/screens/role_selection_screen.dart`
+- Two roles: Tracker (sends GPS) and Viewer (views on map)
+- Both share a hardcoded device ID (`financesensei_tracker_001`)
+- No pairing code needed — designed for same-phone use
+
+### Tracker Screen
+**Status:** Implemented
+**File:** `lib/features/tracker/screens/tracking_screen.dart`
+- Toggle button to start/stop GPS tracking
+- Sends location + battery to Firebase every 30 seconds
+- Writes to `locations/{deviceId}` (latest) and `location_history/{deviceId}/points` (history)
+
+### Viewer Home
+**File:** `lib/features/tracker/screens/viewer_home_screen.dart`
+- 4 tabs: Map, History, Zones, Settings
+- IndexedStack for tab switching
+
+### Map Screen
+**Status:** Implemented
+**File:** `lib/features/tracker/screens/map_screen.dart`
+- Real-time location on OpenStreetMap via flutter_map
+- Settings-driven display: speed badge, battery badge, accuracy circle, trail polyline, pulsing marker
+- Copy coordinates button, connection lost timer
+- "Locate" FAB to refresh and show detail sheet
+
+### History Screen
+**Status:** Implemented
+**File:** `lib/features/tracker/screens/history_screen.dart`
+- Segmented control: Recent (Firebase) | Saved (local SQLite)
+- Recent tab: streams last 100 points, grouped by date, bookmark icon to save locally
+- Saved tab: loads from `saved_locations` SQLite table, delete per item
+- Delete all history button (with confirmation dialog)
+- Auto-delete history older than 15 days when `autoDeleteHistory` setting is enabled
+- Tap any card to open LocationDetailSheet with copy coordinates
+
+### Settings Screen
+**Status:** Implemented
+**File:** `lib/features/tracker/screens/tracker_settings_screen.dart`
+- Display toggles: speed, battery, accuracy circle, trail, pulsing animation
+- Units: km/miles, 24hr time
+- Alerts: movement, low battery, connection lost (with configurable thresholds)
+- Update frequency: real-time (10s), normal (30s), power saver (2min)
+- Disconnect button
+- All settings persisted to SharedPreferences as JSON
+
+### Zones Screen
+**Status:** Placeholder
+**File:** `lib/features/tracker/screens/zones_screen.dart`
+- Max 3 geofence zones
+- Add zone functionality pending
+
+### Data Storage
+- **Firebase Firestore:** Real-time location, location history
+- **Local SQLite:** Saved locations, offline queue, geofences (DB version 13)
+- **SharedPreferences:** Tracker settings, role, device ID

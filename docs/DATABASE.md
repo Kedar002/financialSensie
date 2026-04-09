@@ -747,3 +747,103 @@ CREATE TABLE money_transactions (
   FOREIGN KEY (person_id) REFERENCES people (id) ON DELETE CASCADE
 );
 ```
+
+---
+
+## Tracker Tables (Hidden Feature)
+
+### saved_locations
+
+Stores location points bookmarked by the viewer from Firebase history to local SQLite.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier |
+| latitude | REAL | NOT NULL | Latitude coordinate |
+| longitude | REAL | NOT NULL | Longitude coordinate |
+| accuracy | REAL | NOT NULL | GPS accuracy in meters |
+| speed | REAL | NOT NULL | Speed in m/s |
+| heading | REAL | NOT NULL | Heading in degrees |
+| battery_level | INTEGER | NOT NULL | Battery percentage (0-100) |
+| is_charging | INTEGER | NOT NULL | 1 = charging, 0 = not |
+| timestamp | TEXT | NOT NULL | ISO 8601 original location timestamp |
+| saved_at | TEXT | NOT NULL | ISO 8601 when user bookmarked it |
+
+---
+
+### offline_location_queue
+
+Queues location updates when device is offline. Synced to Firebase on reconnect.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier |
+| latitude | REAL | NOT NULL | Latitude coordinate |
+| longitude | REAL | NOT NULL | Longitude coordinate |
+| accuracy | REAL | NOT NULL | GPS accuracy in meters |
+| speed | REAL | NOT NULL | Speed in m/s |
+| heading | REAL | NOT NULL | Heading in degrees |
+| battery_level | INTEGER | NOT NULL | Battery percentage |
+| is_charging | INTEGER | NOT NULL | 1 = charging, 0 = not |
+| timestamp | TEXT | NOT NULL | ISO 8601 when GPS fix was taken |
+| created_at | TEXT | NOT NULL | ISO 8601 when queued |
+
+---
+
+### geofences
+
+Stores geofence zones for enter/exit notifications.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier |
+| name | TEXT | NOT NULL | Zone name (e.g., "Home", "Office") |
+| latitude | REAL | NOT NULL | Center latitude |
+| longitude | REAL | NOT NULL | Center longitude |
+| radius_meters | REAL | NOT NULL | Radius in meters |
+| notify_on_enter | INTEGER | NOT NULL DEFAULT 1 | 1 = notify on enter |
+| notify_on_exit | INTEGER | NOT NULL DEFAULT 1 | 1 = notify on exit |
+| created_at | TEXT | NOT NULL | ISO 8601 timestamp |
+
+---
+
+### Version 13 (Tracker Tables)
+
+```sql
+CREATE TABLE saved_locations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  latitude REAL NOT NULL,
+  longitude REAL NOT NULL,
+  accuracy REAL NOT NULL,
+  speed REAL NOT NULL,
+  heading REAL NOT NULL,
+  battery_level INTEGER NOT NULL,
+  is_charging INTEGER NOT NULL,
+  timestamp TEXT NOT NULL,
+  saved_at TEXT NOT NULL
+);
+
+CREATE TABLE offline_location_queue (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  latitude REAL NOT NULL,
+  longitude REAL NOT NULL,
+  accuracy REAL NOT NULL,
+  speed REAL NOT NULL,
+  heading REAL NOT NULL,
+  battery_level INTEGER NOT NULL,
+  is_charging INTEGER NOT NULL,
+  timestamp TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE geofences (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  latitude REAL NOT NULL,
+  longitude REAL NOT NULL,
+  radius_meters REAL NOT NULL,
+  notify_on_enter INTEGER NOT NULL DEFAULT 1,
+  notify_on_exit INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL
+);
+```

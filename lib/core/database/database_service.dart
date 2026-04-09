@@ -21,7 +21,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 12,
+      version: 13,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -176,6 +176,49 @@ class DatabaseService {
         date TEXT NOT NULL,
         created_at TEXT NOT NULL,
         FOREIGN KEY (person_id) REFERENCES people (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE saved_locations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        accuracy REAL NOT NULL,
+        speed REAL NOT NULL,
+        heading REAL NOT NULL,
+        battery_level INTEGER NOT NULL,
+        is_charging INTEGER NOT NULL,
+        timestamp TEXT NOT NULL,
+        saved_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE offline_location_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        accuracy REAL NOT NULL,
+        speed REAL NOT NULL,
+        heading REAL NOT NULL,
+        battery_level INTEGER NOT NULL,
+        is_charging INTEGER NOT NULL,
+        timestamp TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE geofences (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        radius_meters REAL NOT NULL,
+        notify_on_enter INTEGER NOT NULL DEFAULT 1,
+        notify_on_exit INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL
       )
     ''');
   }
@@ -372,6 +415,51 @@ class DatabaseService {
       await db.execute(
         "ALTER TABLE expenses ADD COLUMN payment_method TEXT DEFAULT 'cash'"
       );
+    }
+
+    if (oldVersion < 13) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS saved_locations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          latitude REAL NOT NULL,
+          longitude REAL NOT NULL,
+          accuracy REAL NOT NULL,
+          speed REAL NOT NULL,
+          heading REAL NOT NULL,
+          battery_level INTEGER NOT NULL,
+          is_charging INTEGER NOT NULL,
+          timestamp TEXT NOT NULL,
+          saved_at TEXT NOT NULL
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS offline_location_queue (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          latitude REAL NOT NULL,
+          longitude REAL NOT NULL,
+          accuracy REAL NOT NULL,
+          speed REAL NOT NULL,
+          heading REAL NOT NULL,
+          battery_level INTEGER NOT NULL,
+          is_charging INTEGER NOT NULL,
+          timestamp TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS geofences (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          latitude REAL NOT NULL,
+          longitude REAL NOT NULL,
+          radius_meters REAL NOT NULL,
+          notify_on_enter INTEGER NOT NULL DEFAULT 1,
+          notify_on_exit INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL
+        )
+      ''');
     }
   }
 }

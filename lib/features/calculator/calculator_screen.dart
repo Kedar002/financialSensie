@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'emi_calculator_screen.dart';
 import 'budget_calculator_screen.dart';
 import 'payoff_calculator_screen.dart';
+import 'fd_calculator_screen.dart';
 import 'placeholder_calculator_screen.dart';
 
 class CalculatorScreen extends StatelessWidget {
@@ -82,7 +83,7 @@ class CalculatorScreen extends StatelessWidget {
                   _CalculatorTile(
                     title: 'FD Calculator',
                     subtitle: 'Fixed deposit maturity',
-                    onTap: () => _navigateTo(context, const _PlaceholderWrapper(title: 'FD Calculator')),
+                    onTap: () => _navigateTo(context, const _FdCalculatorWrapper()),
                   ),
                   const SizedBox(height: 16),
                   _CalculatorTile(
@@ -218,6 +219,18 @@ class _PayoffCalculatorWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PayoffCalculatorScreen(
+      onBack: () => Navigator.of(context).pop(),
+    );
+  }
+}
+
+// Wrapper for FD Calculator with hidden feature
+class _FdCalculatorWrapper extends StatelessWidget {
+  const _FdCalculatorWrapper();
+
+  @override
+  Widget build(BuildContext context) {
+    return FdCalculatorScreen(
       onBack: () => Navigator.of(context).pop(),
     );
   }

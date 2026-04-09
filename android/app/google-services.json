@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "250586805690",
+    "project_id": "financesensie",
+    "storage_bucket": "financesensie.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:250586805690:android:a09480da5758bbdf3e5983",
+        "android_client_info": {
+          "package_name": "com.example.financesensei"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXLgnxgZvmW7xWLBz5rs96JFG37gg41cs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

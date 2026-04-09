@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'features/budget/budget_screen.dart';
 import 'features/calculator/calculator_screen.dart';
 import 'features/learn/learn_screen.dart';
 import 'features/notes/screens/notes_screen.dart';
+import 'features/tracker/core/services/background_service.dart';
+// DEBUG: temporary imports for direct tracker access — remove after debugging
+import 'features/tracker/screens/tracking_screen.dart';
+import 'features/tracker/screens/viewer_home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp();
+  await TrackerBackgroundService.setupNotificationChannel();
+  await TrackerBackgroundService.initialize();
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -42,7 +52,9 @@ class FinanceSenseiApp extends StatelessWidget {
           backgroundColor: Colors.white,
         ),
       ),
-      home: const MainScreen(),
+      // DEBUG: change to TrackingScreen (real phone) or ViewerHomeScreen (emulator)
+      // home: const MainScreen(), // ORIGINAL — uncomment after debugging
+      home: const _DebugLauncher(),
     );
   }
 }
@@ -184,6 +196,82 @@ class _DrawerItem extends StatelessWidget {
             fontSize: 17,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             color: Colors.black87,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// DEBUG: temporary launcher — remove after debugging
+class _DebugLauncher extends StatelessWidget {
+  const _DebugLauncher();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Debug Launcher',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 32),
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TrackingScreen()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Tracker',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('tracker_role', 'viewer');
+                  await prefs.setString('tracker_paired_device_id', 'financesensei_tracker_001');
+                  if (!context.mounted) return;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ViewerHomeScreen()),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFEEEEEE)),
+                  ),
+                  child: const Text(
+                    'Viewer',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
