@@ -382,6 +382,31 @@ class TrackerBackgroundService {
       _log('startTimer: interval=${duration.inSeconds}s');
     }
 
+    // Auto-cleanup: delete location history older than 7 days (runs once per service start)
+    if (firestore != null) {
+      try {
+        final cutoff = DateTime.now().subtract(const Duration(days: 7));
+        final points = firestore
+            .collection('location_history')
+            .doc(deviceId)
+            .collection('points');
+        final old = await points
+            .where('timestamp', isLessThan: Timestamp.fromDate(cutoff))
+            .limit(100)
+            .get();
+        if (old.docs.isNotEmpty) {
+          final batch = firestore.batch();
+          for (final doc in old.docs) {
+            batch.delete(doc.reference);
+          }
+          await batch.commit();
+          await _log('cleanup: deleted ${old.docs.length} old history entries');
+        }
+      } catch (e) {
+        await _log('cleanup: ERROR $e');
+      }
+    }
+
     // Start the timer FIRST, then do initial send.
     // This ensures the timer is running even if the first send fails.
     startTimer(frequency);
