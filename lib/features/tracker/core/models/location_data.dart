@@ -9,6 +9,9 @@ class LocationData {
   final double accuracy;
   final int batteryLevel;
   final bool isCharging;
+  final bool isNetworkAvailable;
+  final bool isLocationServiceEnabled;
+  final int pendingQueueCount;
 
   const LocationData({
     required this.latitude,
@@ -19,6 +22,9 @@ class LocationData {
     this.accuracy = 0,
     this.batteryLevel = -1,
     this.isCharging = false,
+    this.isNetworkAvailable = true,
+    this.isLocationServiceEnabled = true,
+    this.pendingQueueCount = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -31,6 +37,9 @@ class LocationData {
       'accuracy': accuracy,
       'batteryLevel': batteryLevel,
       'isCharging': isCharging,
+      'isNetworkAvailable': isNetworkAvailable,
+      'isLocationServiceEnabled': isLocationServiceEnabled,
+      'pendingQueueCount': pendingQueueCount,
     };
   }
 
@@ -44,6 +53,9 @@ class LocationData {
       accuracy: (map['accuracy'] as num?)?.toDouble() ?? 0,
       batteryLevel: (map['batteryLevel'] as int?) ?? -1,
       isCharging: (map['isCharging'] as bool?) ?? false,
+      isNetworkAvailable: (map['isNetworkAvailable'] as bool?) ?? true,
+      isLocationServiceEnabled: (map['isLocationServiceEnabled'] as bool?) ?? true,
+      pendingQueueCount: (map['pendingQueueCount'] as int?) ?? 0,
     );
   }
 

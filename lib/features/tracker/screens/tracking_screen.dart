@@ -1,12 +1,6 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:battery_plus/battery_plus.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../core/services/background_service.dart';
-import '../core/tracker_constants.dart';
+import '../core/services/foreground_tracker.dart';
 import 'role_selection_screen.dart';
 
 class TrackingScreen extends StatefulWidget {
@@ -17,232 +11,77 @@ class TrackingScreen extends StatefulWidget {
 }
 
 class _TrackingScreenState extends State<TrackingScreen> {
-  bool _isTracking = false;
-  String _lastUpdate = 'Never';
-  int _batteryLevel = 0;
-  bool _isCharging = false;
-  Timer? _locationTimer;
+  final _tracker = ForegroundTracker.instance;
 
   @override
   void initState() {
     super.initState();
-    _loadState();
-    _updateBattery();
+    _tracker.onStateChanged = () {
+      if (mounted) setState(() {});
+    };
   }
 
   @override
   void dispose() {
-    _locationTimer?.cancel();
+    // Do NOT stop tracking or cancel timers here.
+    // The singleton keeps running independently of this screen.
+    if (_tracker.onStateChanged != null) {
+      _tracker.onStateChanged = null;
+    }
     super.dispose();
   }
 
-  Future<void> _loadState() async {
-    final prefs = await SharedPreferences.getInstance();
-    final tracking = prefs.getBool('tracker_is_tracking') ?? false;
-    if (mounted) {
-      setState(() => _isTracking = tracking);
-      if (tracking) _startLocationUpdates();
-    }
-  }
-
-  Future<void> _updateBattery() async {
-    final battery = Battery();
-    final level = await battery.batteryLevel;
-    final state = await battery.batteryState;
-    if (mounted) {
-      setState(() {
-        _batteryLevel = level;
-        _isCharging = state == BatteryState.charging;
-      });
-    }
-  }
-
-  Future<bool> _ensurePermissions() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return false;
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) return false;
-    }
-    if (permission == LocationPermission.deniedForever) return false;
-    return true;
-  }
-
-  Future<void> _sendLocation() async {
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-
-      await _updateBattery();
-
-      final data = {
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'timestamp': FieldValue.serverTimestamp(),
-        'speed': position.speed,
-        'heading': position.heading,
-        'accuracy': position.accuracy,
-        'batteryLevel': _batteryLevel,
-        'isCharging': _isCharging,
-      };
-
-      final firestore = FirebaseFirestore.instance;
-      await firestore
-          .collection('locations')
-          .doc(kSharedDeviceId)
-          .set(data);
-
-      await firestore
-          .collection('location_history')
-          .doc(kSharedDeviceId)
-          .collection('points')
-          .add(data);
-
-      if (mounted) {
-        setState(() {
-          _lastUpdate = _formatTime(DateTime.now());
-        });
-      }
-    } catch (e) {
-      debugPrint('Location error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            duration: const Duration(seconds: 5),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
-
-  void _startLocationUpdates() {
-    _sendLocation();
-    _locationTimer?.cancel();
-    _locationTimer = Timer.periodic(
-      TrackerConstants.locationInterval,
-      (_) => _sendLocation(),
-    );
-  }
-
-  void _stopLocationUpdates() {
-    _locationTimer?.cancel();
-    _locationTimer = null;
-  }
-
   Future<void> _toggleTracking() async {
-    if (!_isTracking) {
-      final hasPermission = await _ensurePermissions();
+    if (_tracker.isPaused) {
+      // Paused — resume tracking instead of stopping
+      await _tracker.resume();
+      return;
+    }
+
+    if (!_tracker.isTracking) {
+      final hasPermission = await _tracker.ensurePermissions();
       if (!hasPermission) return;
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('tracker_is_tracking', true);
-      // Ensure device ID is set for background service
-      await prefs.setString('tracker_device_id', kSharedDeviceId);
-      await prefs.setString('tracker_paired_device_id', kSharedDeviceId);
-      setState(() => _isTracking = true);
+      await _tracker.start(kSharedDeviceId);
 
-      // Direct Timer for foreground reliability
-      _startLocationUpdates();
-
-      // Request battery optimization exemption, then start background service
+      // Try to start background service too (may not work on all API levels)
       try {
         await TrackerBackgroundService.requestBatteryOptimizationExemption();
         await TrackerBackgroundService.startService();
-        // One-time prompt for OEM autostart whitelist (OnePlus, Oppo, etc.)
-        final shown = prefs.getBool('tracker_oem_dialog_shown') ?? false;
-        if (!shown && mounted) {
-          await prefs.setBool('tracker_oem_dialog_shown', true);
-          await _showOemBatteryDialog();
-        }
-      } catch (e) {
-        if (mounted) {
+        final running = await TrackerBackgroundService.isRunning();
+        debugPrint('[FG] Background service running: $running');
+        if (!running && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('BG service error: $e'),
-              duration: const Duration(seconds: 5),
+            const SnackBar(
+              content: Text('Background service unavailable — using foreground tracking'),
+              duration: Duration(seconds: 3),
               behavior: SnackBarBehavior.floating,
             ),
           );
         }
+      } catch (e) {
+        debugPrint('[FG] BG service error: $e');
       }
     } else {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('tracker_is_tracking', false);
-      setState(() => _isTracking = false);
-
-      _stopLocationUpdates();
-
+      await _tracker.stop();
       try {
         await TrackerBackgroundService.stopService();
-      } catch (e) {
-        debugPrint('Stop service error: $e');
-      }
+      } catch (_) {}
     }
   }
 
-  Future<void> _showOemBatteryDialog() async {
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Keep tracking alive'),
-        content: const Text(
-          'OnePlus and Oppo devices aggressively stop background apps. '
-          'To keep location tracking running after you close the app:\n\n'
-          '1. Tap "Open Settings" below\n'
-          '2. Find this app and enable Autostart\n'
-          '3. Also go to Battery → App battery management → set this app to "Unrestricted"',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Skip'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final opened =
-                  await TrackerBackgroundService.openOemBatterySettings();
-              if (!opened && mounted) {
-                // Fallback: open generic app settings
-                await openAppSettings();
-              }
-            },
-            child: const Text('Open Settings'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatTime(DateTime time) {
-    final h = time.hour.toString().padLeft(2, '0');
-    final m = time.minute.toString().padLeft(2, '0');
-    final s = time.second.toString().padLeft(2, '0');
-    return '$h:$m:$s';
-  }
-
   Future<void> _resetRole() async {
-    final prefs = await SharedPreferences.getInstance();
-    _stopLocationUpdates();
+    await _tracker.reset();
     try {
       await TrackerBackgroundService.stopService();
     } catch (_) {}
-    await prefs.remove('tracker_role');
-    await prefs.remove('tracker_device_id');
-    await prefs.remove('tracker_is_tracking');
     if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isTracking = _tracker.isTracking && !_tracker.isPaused;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -294,43 +133,60 @@ class _TrackingScreenState extends State<TrackingScreen> {
                 height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _isTracking ? Colors.black : const Color(0xFFFAFAFA),
+                  color: isTracking ? Colors.black : const Color(0xFFFAFAFA),
                   border: Border.all(
-                    color: _isTracking
+                    color: isTracking
                         ? Colors.black
                         : const Color(0xFFE0E0E0),
                     width: 2,
                   ),
                 ),
                 child: Icon(
-                  _isTracking
+                  isTracking
                       ? Icons.location_on
                       : Icons.location_off_outlined,
                   size: 40,
-                  color: _isTracking ? Colors.white : const Color(0xFFCCCCCC),
+                  color: isTracking ? Colors.white : const Color(0xFFCCCCCC),
                 ),
               ),
             ),
             const SizedBox(height: 24),
             Text(
-              _isTracking ? 'Tracking Active' : 'Tracking Paused',
+              _tracker.isPaused
+                  ? 'Tracking Paused'
+                  : isTracking
+                      ? 'Tracking Active'
+                      : 'Tracking Off',
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
-                color: _isTracking
-                    ? const Color(0xFF4CAF50)
-                    : const Color(0xFF888888),
+                color: _tracker.isPaused
+                    ? const Color(0xFFFF9800)
+                    : isTracking
+                        ? const Color(0xFF4CAF50)
+                        : const Color(0xFF888888),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Last update: $_lastUpdate',
+              'Last update: ${_tracker.lastUpdate}',
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
                 color: Color(0xFF888888),
               ),
             ),
+            if (isTracking) ...[
+              const SizedBox(height: 4),
+              Text(
+                '${_tracker.currentMode} · every ${_tracker.currentInterval.inSeconds}s · #${_tracker.sendCount}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: Color(0xFFAAAAAA),
+                ),
+              ),
+            ],
             const Spacer(),
             Padding(
               padding: const EdgeInsets.only(bottom: 24),
@@ -338,7 +194,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    _isCharging
+                    _tracker.isCharging
                         ? Icons.battery_charging_full
                         : Icons.battery_full,
                     size: 16,
@@ -346,7 +202,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Sharing battery: $_batteryLevel%',
+                    'Sharing battery: ${_tracker.batteryLevel}%',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w400,

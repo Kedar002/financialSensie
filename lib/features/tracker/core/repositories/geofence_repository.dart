@@ -15,6 +15,19 @@ class GeofenceRepository {
     return db.insert('geofences', geofence.toMap());
   }
 
+  Future<void> update(Geofence geofence) async {
+    if (geofence.id == null) {
+      throw ArgumentError('Cannot update a geofence without an id');
+    }
+    final db = await _db.database;
+    await db.update(
+      'geofences',
+      geofence.toMap(),
+      where: 'id = ?',
+      whereArgs: [geofence.id],
+    );
+  }
+
   Future<void> delete(int id) async {
     final db = await _db.database;
     await db.delete('geofences', where: 'id = ?', whereArgs: [id]);

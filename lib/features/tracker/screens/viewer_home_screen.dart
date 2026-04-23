@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'map_screen.dart';
 import 'history_screen.dart';
+import 'calendar_screen.dart';
 import 'zones_screen.dart';
 import 'tracker_settings_screen.dart';
 
@@ -17,6 +18,7 @@ class _ViewerHomeScreenState extends State<ViewerHomeScreen> {
   final _screens = const [
     MapScreen(),
     HistoryScreen(),
+    CalendarScreen(),
     ZonesScreen(),
     TrackerSettingsScreen(),
   ];
@@ -78,18 +80,25 @@ class _ViewerHomeScreenState extends State<ViewerHomeScreen> {
                         onTap: () => setState(() => _currentIndex = 1),
                       ),
                       _NavItem(
+                        icon: Icons.calendar_today_outlined,
+                        activeIcon: Icons.calendar_today,
+                        label: 'Calendar',
+                        isActive: _currentIndex == 2,
+                        onTap: () => setState(() => _currentIndex = 2),
+                      ),
+                      _NavItem(
                         icon: Icons.radar_outlined,
                         activeIcon: Icons.radar,
                         label: 'Zones',
-                        isActive: _currentIndex == 2,
-                        onTap: () => setState(() => _currentIndex = 2),
+                        isActive: _currentIndex == 3,
+                        onTap: () => setState(() => _currentIndex = 3),
                       ),
                       _NavItem(
                         icon: Icons.settings_outlined,
                         activeIcon: Icons.settings,
                         label: 'Settings',
-                        isActive: _currentIndex == 3,
-                        onTap: () => setState(() => _currentIndex = 3),
+                        isActive: _currentIndex == 4,
+                        onTap: () => setState(() => _currentIndex = 4),
                       ),
                     ],
                   ),

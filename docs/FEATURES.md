@@ -496,49 +496,142 @@ Hidden behind a 5-second long press on the FD Calculator screen. Typing "hdelete
 **Status:** Implemented
 **File:** `lib/features/tracker/screens/tracking_screen.dart`
 - Toggle button to start/stop GPS tracking
-- Sends location + battery to Firebase every 30 seconds
-- Writes to `locations/{deviceId}` (latest) and `location_history/{deviceId}/points` (history)
+- Background service with smart stationary detection (state machine)
+- OEM battery optimization dialog for OnePlus/Oppo
+
+### Smart Tracking Algorithm
+**Status:** Implemented
+**File:** `lib/features/tracker/core/services/stationary_detector.dart`
+- State machine: MOVING → MAYBE_STATIONARY → STATIONARY → MAYBE_MOVING
+- Detects visits (places where device stops for 3+ minutes)
+- Adaptive GPS polling: 30s when moving/maybeMoving/maybeStationary, 120s when stationary
+- MAYBE_MOVING uses fast 30s polling for quick exit detection and accurate geofence boundary crossing
+- Per-zone custom intervals (only applied when confirmed stationary)
+- GPS readings with accuracy >100m ignored for state transitions
+- State persisted to SharedPreferences for crash recovery
+- **Accurate timing:** Visit start = first near-anchor GPS timestamp; departure = first far-from-anchor GPS timestamp
+- **Unknown placeholder on arrival:** When a visit starts and no zone matches, the visit is recorded immediately with `zone_name = "Unknown"` so the user sees it in History right away. The placeholder is upgraded to a real name when the visit ends (matched zone or auto-zone).
+- **Auto-zone creation:** Unknown locations auto-create a 100m geofence zone with a timestamp-based name like `Place 14:32 13 Apr`. Created mid-visit once the visit has run past `minimumVisitDuration` (3 min) if no nearby zone exists, and also on visit end as a fallback. The timestamp format avoids collision with manual zones named `Location N`. Mid-visit creation ensures devices that stay at one place for a long time (including mock-location testing) still get a zone without waiting for departure.
 
 ### Viewer Home
 **File:** `lib/features/tracker/screens/viewer_home_screen.dart`
-- 4 tabs: Map, History, Zones, Settings
+- 5 tabs: Map, History, Calendar, Zones, Settings
 - IndexedStack for tab switching
 
 ### Map Screen
 **Status:** Implemented
 **File:** `lib/features/tracker/screens/map_screen.dart`
 - Real-time location on OpenStreetMap via flutter_map
-- Settings-driven display: speed badge, battery badge, accuracy circle, trail polyline, pulsing marker
+- Zone circles displayed on map with labels
+- Active visit banner ("At Home for 2h 15m")
+- Live mode indicator and controls
+- Settings-driven display: speed badge, battery badge, accuracy circle, pulsing marker
 - Copy coordinates button, connection lost timer
-- "Locate" FAB to refresh and show detail sheet
+- "Locate" FAB sends `locateNow` command — background service has a Firebase listener that immediately triggers a fresh GPS reading (bypasses timer interval)
+- "Live" button to start real-time tracking at custom interval (10s/30s/60s)
 
 ### History Screen
 **Status:** Implemented
 **File:** `lib/features/tracker/screens/history_screen.dart`
-- Segmented control: Recent (Firebase) | Saved (local SQLite)
-- Recent tab: streams last 100 points, grouped by date, bookmark icon to save locally
-- Saved tab: loads from `saved_locations` SQLite table, delete per item
-- Delete all history button (with confirmation dialog)
-- Auto-delete history older than 15 days when `autoDeleteHistory` setting is enabled
-- Tap any card to open LocationDetailSheet with copy coordinates
+- Visit timeline grouped by day
+- Each visit shows: zone name (or coordinates), arrival → departure, duration
+- Zone name is resolved live from the current geofences (`geofencesStream`) keyed by `visit.zoneId`, falling back to the denormalized `zoneName`. Renaming a zone updates every prior visit's label without rewriting records.
+- Transit gaps shown between visits ("In transit — 23m") — tappable → `TransitDetailScreen`
+- Daily summary: place count + total tracked time
+- Streams visits from Firebase in real-time
+
+### Calendar Screen
+**Status:** Implemented
+**File:** `lib/features/tracker/screens/calendar_screen.dart`
+- Monthly calendar grid with day dots for days with visits
+- Tap any day to see full timeline
+- Day timeline: visits with arrival/departure/duration, transit gaps, summary
+- Transit gaps tap through to `TransitDetailScreen` (same as History)
+
+### Transit Detail Screen
+**Status:** Implemented
+**File:** `lib/features/tracker/screens/transit_detail_screen.dart`
+- Opened by tapping an "In transit" row in History or Calendar
+- Top half: `FlutterMap` with a blue polyline drawn from GPS samples between `from.departureTime` and `to.arrivalTime`. Start marker = black, end = blue. Camera auto-fits to the path bounds.
+- Bottom: from → to labels, duration, depart/arrive times, sample count (or "No path recorded" if the transit predates continuous logging).
+- Data source: `VisitFirebaseService.locationHistoryBetween(deviceId, from, to)` queries `location_history/{deviceId}/points` ordered by timestamp.
+- Transits that predate the continuous-logging change show an empty map (only `from`/`to` endpoint dots) with "No path recorded".
 
 ### Settings Screen
 **Status:** Implemented
 **File:** `lib/features/tracker/screens/tracker_settings_screen.dart`
-- Display toggles: speed, battery, accuracy circle, trail, pulsing animation
+- Display toggles: speed, battery, accuracy circle, pulsing animation
 - Units: km/miles, 24hr time
 - Alerts: movement, low battery, connection lost (with configurable thresholds)
-- Update frequency: real-time (10s), normal (30s), power saver (2min)
 - Disconnect button
 - All settings persisted to SharedPreferences as JSON
+- **Dev Tools entry (debug builds only):** opens `TrackerDevToolsScreen` for bug-fix verification
+
+### Dev Tools (Debug-Only)
+**Status:** Implemented
+**File:** `lib/features/tracker/screens/tracker_dev_tools_screen.dart`
+- Hidden from release builds (`kDebugMode` guard)
+- Live counts: offline queue size, recent visit count, zone count
+- **Bug 1 verification:** "Simulate unknown-location visit" inserts a `Visit` with `zone_name = 'Unknown'` so History rendering can be checked without walking outside
+- **Bug 2 verification:** "Queue 5 offline points" seeds `offline_location_queue`; toggle airplane mode and watch the count drop after the 60s drain or on reconnect
+- **Bug 3 verification:** "Seed test zone" + "Show zone diagnostics" lists every local geofence with its id so duplicates / id drift are obvious after a create / edit / delete cycle
 
 ### Zones Screen
-**Status:** Placeholder
+**Status:** Implemented
 **File:** `lib/features/tracker/screens/zones_screen.dart`
-- Max 3 geofence zones
-- Add zone functionality pending
+- Unlimited zones (removed 3-zone limit)
+- Each zone shows name, radius, settings summary
+- Tap to edit, X to delete
+- Zones synced to Firebase for tracker to read
+
+### Add/Edit Zone Screen
+**Status:** Implemented
+**File:** `lib/features/tracker/screens/add_zone_screen.dart`
+- Map picker for zone center (tap or paste coordinates)
+- Radius slider (50m–1000m)
+- Per-zone alert settings: enter, exit, alert-only-on-exit, suppress-while-inside
+- Custom update interval (any number + min/hr unit picker)
+- Minimum stay alert (any number + min/hr unit picker)
+- Saves to local SQLite + syncs to Firebase
+- **Edit flow uses `update()` by id** (not delete-then-insert) so the row identity is stable, no race against the Firebase listener, and no transient duplicate
+
+### Firebase Geofence Sync
+**Status:** Implemented
+**File:** `lib/features/tracker/core/services/background_service.dart`
+- Background service subscribes to `geofences/{deviceId}/zones` and reconciles into local SQLite via diff-based upsert
+- **Empty Firestore snapshots are ignored** (treated as transient cache/error) — never wipes the local table
+- Local rows missing from the snapshot are pruned only when the snapshot is non-empty
+- Combined with the `update()` edit flow, this prevents the duplicate / disappearing zone bug
+
+### Live Mode
+- Viewer sends live mode command via Firebase `commands/{deviceId}`
+- Tracker reads command and overrides smart algorithm with fixed interval
+- Viewer can choose 10s, 30s, or 60s intervals
+- Stopping live mode returns tracker to smart detection
+
+### Offline Location Queue
+**Status:** Implemented
+- When network is off but GPS is on, locations are queued to local SQLite (`offline_location_queue`)
+- Both ForegroundTracker and BackgroundService use the same queue table
+- **Drain triggers (independent of current write success):**
+  - 60-second periodic timer
+  - Connectivity listener fires an immediate drain when the device transitions back online
+  - Background service tick also drains after queue maintenance
+- Each drain pulls the oldest 20 queued items and deletes them only after a successful Firebase write; on first error the drain stops so the remaining points stay queued
+- Drained points are written to `location_history/{deviceId}/points` (append-only timeline) with `syncedFromQueue: true` — never to `locations/{deviceId}`, which would overwrite the current-position doc with stale data
+- Queue capped at 1000 rows — oldest entries removed when cap is reached
+- Viewer sees pending queue count in the "Updated X ago" badge and location detail sheet
+
+### Viewer Device Status
+**Status:** Implemented
+- Firebase `locations` document includes: `isNetworkAvailable`, `isLocationServiceEnabled`, `pendingQueueCount`
+- Map screen "Updated X ago" badge shows:
+  - Red dot when tracker's location service is off
+  - Orange dot when tracker's network is off
+  - "· N queued" suffix when locations are pending sync
+- Location detail sheet shows "Network: Connected/Offline" and "Queued: N locations" rows
 
 ### Data Storage
-- **Firebase Firestore:** Real-time location, location history
-- **Local SQLite:** Saved locations, offline queue, geofences (DB version 13)
-- **SharedPreferences:** Tracker settings, role, device ID
+- **Firebase Firestore:** Real-time location (with device status), visits, active visit, zone settings, commands
+- **Local SQLite:** Visits, zone settings, offline queue, geofences, saved locations (DB version 14)
+- **SharedPreferences:** Tracker settings, role, device ID, detector state

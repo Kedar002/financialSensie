@@ -773,7 +773,9 @@ Stores location points bookmarked by the viewer from Firebase history to local S
 
 ### offline_location_queue
 
-Queues location updates when device is offline. Synced to Firebase on reconnect.
+Queues location updates when device is offline. Used by both the ForegroundTracker and BackgroundService — both write to the same table when Firebase is unreachable. Drain triggers are independent of any current write: a 60s periodic timer, a connectivity listener that fires on reconnect, and the BG service tick all call `syncPending()`, which writes oldest 20 rows to `location_history/{deviceId}/points` (append-only timeline, NOT `locations/{deviceId}`) and deletes them only after each successful Firebase write — on first error the drain stops so remaining rows stay queued. Queue is capped at 1000 rows by the ForegroundTracker.
+
+**Firestore `location_history/{deviceId}/points` now also receives a live append on every successful online GPS write (see `background_service.dart` in the `shouldSendFirebase` branch), in addition to the offline-drain path. This ensures a continuous trail exists regardless of connectivity, so `TransitDetailScreen` can draw the polyline between two visits. The `locations/{deviceId}` single-doc overwrite is unchanged.**
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
@@ -804,6 +806,8 @@ Stores geofence zones for enter/exit notifications.
 | notify_on_enter | INTEGER | NOT NULL DEFAULT 1 | 1 = notify on enter |
 | notify_on_exit | INTEGER | NOT NULL DEFAULT 1 | 1 = notify on exit |
 | created_at | TEXT | NOT NULL | ISO 8601 timestamp |
+
+**Auto-zone creation:** When a visit ends at a location not matching any existing geofence, the background service auto-creates a geofence (name "Location N", radius 100m) so the location is recognized on future visits. Auto-zones are also synced to Firebase.
 
 ---
 
@@ -847,3 +851,67 @@ CREATE TABLE geofences (
   created_at TEXT NOT NULL
 );
 ```
+
+---
+
+### Version 14 (Smart Tracking — Visits & Zone Settings)
+
+```sql
+CREATE TABLE visits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  latitude REAL NOT NULL,
+  longitude REAL NOT NULL,
+  arrival_time TEXT NOT NULL,
+  departure_time TEXT,
+  duration_minutes INTEGER,
+  zone_name TEXT,
+  zone_id INTEGER,
+  battery_on_arrival INTEGER NOT NULL DEFAULT -1,
+  battery_on_departure INTEGER
+);
+
+CREATE TABLE zone_settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  geofence_id INTEGER NOT NULL,
+  zone_name TEXT NOT NULL,
+  alert_on_enter INTEGER NOT NULL DEFAULT 1,
+  alert_on_exit INTEGER NOT NULL DEFAULT 1,
+  minimum_stay_minutes INTEGER NOT NULL DEFAULT 0,
+  suppress_while_inside INTEGER NOT NULL DEFAULT 0,
+  alert_only_on_exit INTEGER NOT NULL DEFAULT 0,
+  update_interval_minutes INTEGER NOT NULL DEFAULT 0
+);
+```
+
+#### visits
+
+Records stationary visits detected by the smart tracking algorithm.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier |
+| latitude | REAL | NOT NULL | Anchor point latitude |
+| longitude | REAL | NOT NULL | Anchor point longitude |
+| arrival_time | TEXT | NOT NULL | ISO 8601 — when device arrived |
+| departure_time | TEXT | | ISO 8601 — when device left (NULL = still there) |
+| duration_minutes | INTEGER | | Visit duration in minutes |
+| zone_name | TEXT | | Matched geofence name. `"Unknown"` is a placeholder written on arrival when no zone matches; it is upgraded at departure to the matched zone or auto-created `Place HH:MM dd MMM` zone. NULL is allowed for legacy rows. |
+| zone_id | INTEGER | | Matched geofence id (nullable) |
+| battery_on_arrival | INTEGER | NOT NULL DEFAULT -1 | Battery % on arrival |
+| battery_on_departure | INTEGER | | Battery % on departure |
+
+#### zone_settings
+
+Per-zone settings controlled by the Viewer and synced to the tracker via Firebase.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier |
+| geofence_id | INTEGER | NOT NULL | FK to geofences.id |
+| zone_name | TEXT | NOT NULL | Zone name (denormalized) |
+| alert_on_enter | INTEGER | NOT NULL DEFAULT 1 | Notify on zone entry |
+| alert_on_exit | INTEGER | NOT NULL DEFAULT 1 | Notify on zone exit |
+| minimum_stay_minutes | INTEGER | NOT NULL DEFAULT 0 | Min stay before alerting (0 = immediate) |
+| suppress_while_inside | INTEGER | NOT NULL DEFAULT 0 | Suppress all updates in zone |
+| alert_only_on_exit | INTEGER | NOT NULL DEFAULT 0 | No entry alert, alert only on exit |
+| update_interval_minutes | INTEGER | NOT NULL DEFAULT 0 | Custom GPS interval in zone (0 = default) |

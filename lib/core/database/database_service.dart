@@ -21,7 +21,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 13,
+      version: 14,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -219,6 +219,35 @@ class DatabaseService {
         notify_on_enter INTEGER NOT NULL DEFAULT 1,
         notify_on_exit INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE visits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        arrival_time TEXT NOT NULL,
+        departure_time TEXT,
+        duration_minutes INTEGER,
+        zone_name TEXT,
+        zone_id INTEGER,
+        battery_on_arrival INTEGER NOT NULL DEFAULT -1,
+        battery_on_departure INTEGER
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE zone_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        geofence_id INTEGER NOT NULL,
+        zone_name TEXT NOT NULL,
+        alert_on_enter INTEGER NOT NULL DEFAULT 1,
+        alert_on_exit INTEGER NOT NULL DEFAULT 1,
+        minimum_stay_minutes INTEGER NOT NULL DEFAULT 0,
+        suppress_while_inside INTEGER NOT NULL DEFAULT 0,
+        alert_only_on_exit INTEGER NOT NULL DEFAULT 0,
+        update_interval_minutes INTEGER NOT NULL DEFAULT 0
       )
     ''');
   }
@@ -461,5 +490,37 @@ class DatabaseService {
         )
       ''');
     }
+
+    if (oldVersion < 14) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS visits (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          latitude REAL NOT NULL,
+          longitude REAL NOT NULL,
+          arrival_time TEXT NOT NULL,
+          departure_time TEXT,
+          duration_minutes INTEGER,
+          zone_name TEXT,
+          zone_id INTEGER,
+          battery_on_arrival INTEGER NOT NULL DEFAULT -1,
+          battery_on_departure INTEGER
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS zone_settings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          geofence_id INTEGER NOT NULL,
+          zone_name TEXT NOT NULL,
+          alert_on_enter INTEGER NOT NULL DEFAULT 1,
+          alert_on_exit INTEGER NOT NULL DEFAULT 1,
+          minimum_stay_minutes INTEGER NOT NULL DEFAULT 0,
+          suppress_while_inside INTEGER NOT NULL DEFAULT 0,
+          alert_only_on_exit INTEGER NOT NULL DEFAULT 0,
+          update_interval_minutes INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
+    }
+
   }
 }

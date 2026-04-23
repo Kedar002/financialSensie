@@ -19,6 +19,26 @@ class Geofence {
     this.createdAt,
   });
 
+  Geofence copyWith({
+    int? id,
+    String? name,
+    LatLng? center,
+    double? radiusMeters,
+    bool? notifyOnEnter,
+    bool? notifyOnExit,
+    DateTime? createdAt,
+  }) {
+    return Geofence(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      center: center ?? this.center,
+      radiusMeters: radiusMeters ?? this.radiusMeters,
+      notifyOnEnter: notifyOnEnter ?? this.notifyOnEnter,
+      notifyOnExit: notifyOnExit ?? this.notifyOnExit,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
@@ -46,6 +66,31 @@ class Geofence {
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'] as String)
           : null,
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'name': name,
+      'latitude': center.latitude,
+      'longitude': center.longitude,
+      'radiusMeters': radiusMeters,
+      'notifyOnEnter': notifyOnEnter,
+      'notifyOnExit': notifyOnExit,
+    };
+  }
+
+  factory Geofence.fromFirestore(Map<String, dynamic> map, {int? localId}) {
+    return Geofence(
+      id: localId,
+      name: map['name'] as String? ?? '',
+      center: LatLng(
+        (map['latitude'] as num).toDouble(),
+        (map['longitude'] as num).toDouble(),
+      ),
+      radiusMeters: (map['radiusMeters'] as num?)?.toDouble() ?? 100.0,
+      notifyOnEnter: map['notifyOnEnter'] as bool? ?? true,
+      notifyOnExit: map['notifyOnExit'] as bool? ?? true,
     );
   }
 }

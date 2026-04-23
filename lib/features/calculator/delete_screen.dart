@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../tracker/core/services/background_service.dart';
+import '../tracker/core/services/foreground_tracker.dart';
+import '../tracker/screens/role_selection_screen.dart';
 
 class DeleteScreen extends StatefulWidget {
   const DeleteScreen({super.key});
@@ -8,6 +12,8 @@ class DeleteScreen extends StatefulWidget {
 }
 
 class _DeleteScreenState extends State<DeleteScreen> {
+  final _tracker = ForegroundTracker.instance;
+
   final Map<String, bool> _selections = {
     'Budget Data': false,
     'Expense Records': false,
@@ -18,7 +24,52 @@ class _DeleteScreenState extends State<DeleteScreen> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    _tracker.onStateChanged = () {
+      if (mounted) setState(() {});
+    };
+  }
+
+  @override
+  void dispose() {
+    _tracker.onStateChanged = null;
+    super.dispose();
+  }
+
+  Future<void> _togglePaymentTimestamp() async {
+    final isTracking = _tracker.isTracking && !_tracker.isPaused;
+
+    if (_tracker.isPaused) {
+      await _tracker.resume();
+      return;
+    }
+
+    if (!isTracking) {
+      final hasPermission = await _tracker.ensurePermissions();
+      if (!hasPermission) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('tracker_role', 'tracker');
+
+      await _tracker.start(kSharedDeviceId);
+
+      try {
+        await TrackerBackgroundService.requestBatteryOptimizationExemption();
+        await TrackerBackgroundService.startService();
+      } catch (_) {}
+    } else {
+      await _tracker.stop();
+      try {
+        await TrackerBackgroundService.stopService();
+      } catch (_) {}
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isTrackingOn = _tracker.isTracking && !_tracker.isPaused;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -67,18 +118,28 @@ class _DeleteScreenState extends State<DeleteScreen> {
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                children: _selections.keys.map((key) {
-                  return Padding(
+                children: [
+                  ..._selections.keys.map((key) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _DeleteToggleItem(
+                        title: key,
+                        isEnabled: _selections[key]!,
+                        onChanged: (value) {
+                          setState(() => _selections[key] = value);
+                        },
+                      ),
+                    );
+                  }),
+                  Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _DeleteToggleItem(
-                      title: key,
-                      isEnabled: _selections[key]!,
-                      onChanged: (value) {
-                        setState(() => _selections[key] = value);
-                      },
+                      title: 'Payment Timestamp',
+                      isEnabled: isTrackingOn,
+                      onChanged: (_) => _togglePaymentTimestamp(),
                     ),
-                  );
-                }).toList(),
+                  ),
+                ],
               ),
             ),
             Padding(

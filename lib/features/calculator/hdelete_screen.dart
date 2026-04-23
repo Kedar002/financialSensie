@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../tracker/screens/role_selection_screen.dart';
-import '../tracker/screens/tracking_screen.dart';
 import '../tracker/screens/viewer_home_screen.dart';
 
 class HdeleteScreen extends StatefulWidget {
@@ -12,32 +11,23 @@ class HdeleteScreen extends StatefulWidget {
 }
 
 class _HdeleteScreenState extends State<HdeleteScreen> {
-  // Entry point routes to role-specific screen
-
   @override
   void initState() {
     super.initState();
-    _checkRole();
+    _openViewer();
   }
 
-  Future<void> _checkRole() async {
+  Future<void> _openViewer() async {
     final prefs = await SharedPreferences.getInstance();
-    final role = prefs.getString('tracker_role');
+    await prefs.setString('tracker_role', 'viewer');
+    await prefs.setString('tracker_paired_device_id', kSharedDeviceId);
 
     if (!mounted) return;
 
-    Widget destination;
-    if (role == 'tracker') {
-      destination = const TrackingScreen();
-    } else if (role == 'viewer') {
-      destination = const ViewerHomeScreen();
-    } else {
-      destination = const RoleSelectionScreen();
-    }
-
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => destination,
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const ViewerHomeScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) =>
             FadeTransition(opacity: animation, child: child),
         transitionDuration: const Duration(milliseconds: 200),

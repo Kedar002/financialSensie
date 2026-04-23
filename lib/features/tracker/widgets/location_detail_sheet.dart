@@ -4,12 +4,10 @@ import '../core/models/location_data.dart';
 
 class LocationDetailSheet extends StatelessWidget {
   final LocationData location;
-  final bool useKm;
 
   const LocationDetailSheet({
     super.key,
     required this.location,
-    this.useKm = true,
   });
 
   String _timeAgo() {
@@ -21,8 +19,8 @@ class LocationDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final speed = useKm ? location.speedKmh : location.speedMph;
-    final speedUnit = useKm ? 'km/h' : 'mph';
+    final speed = location.speedKmh;
+    const speedUnit = 'km/h';
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -63,6 +61,19 @@ class LocationDetailSheet extends StatelessWidget {
             'Battery',
             '${location.batteryLevel}%${location.isCharging ? ' (Charging)' : ''}',
           ),
+          _DetailRow(
+            'Network',
+            location.isNetworkAvailable ? 'Connected' : 'Offline',
+            valueColor: location.isNetworkAvailable
+                ? null
+                : const Color(0xFFE53935),
+          ),
+          if (location.pendingQueueCount > 0)
+            _DetailRow(
+              'Queued',
+              '${location.pendingQueueCount} locations',
+              valueColor: const Color(0xFFFF9800),
+            ),
           const SizedBox(height: 8),
           GestureDetector(
             onTap: () {
@@ -105,8 +116,9 @@ class LocationDetailSheet extends StatelessWidget {
 class _DetailRow extends StatelessWidget {
   final String label;
   final String value;
+  final Color? valueColor;
 
-  const _DetailRow(this.label, this.value);
+  const _DetailRow(this.label, this.value, {this.valueColor});
 
   @override
   Widget build(BuildContext context) {
@@ -125,10 +137,10 @@ class _DetailRow extends StatelessWidget {
           ),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.black,
+              color: valueColor ?? Colors.black,
             ),
           ),
         ],

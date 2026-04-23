@@ -1,8 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/models/tracker_settings.dart';
+import '../core/services/foreground_tracker.dart';
 import '../core/services/background_service.dart';
+import '../../../../core/database/database_service.dart';
 import '../widgets/glass_card.dart';
+import 'tracker_dev_tools_screen.dart';
 
 class TrackerSettingsScreen extends StatefulWidget {
   const TrackerSettingsScreen({super.key});
@@ -25,20 +30,171 @@ class _TrackerSettingsScreenState extends State<TrackerSettingsScreen> {
     setState(() => _settings = settings);
   }
 
-  void _update(TrackerSettings Function(TrackerSettings) updater) {
-    final old = _settings;
+  Future<void> _update(TrackerSettings Function(TrackerSettings) updater) async {
     setState(() => _settings = updater(_settings));
-    _settings.save();
-    if (_settings.updateFrequency != old.updateFrequency) {
-      TrackerBackgroundService.updateFrequency(_settings.updateFrequency);
+    await _settings.save();
+    // Sync to Firebase so the background service picks it up immediately
+    // (SharedPreferences.reload() across isolates is unreliable)
+    _syncToFirebase();
+  }
+
+  Future<void> _syncToFirebase() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final deviceId = prefs.getString('tracker_paired_device_id') ?? '';
+      if (deviceId.isEmpty) return;
+      await FirebaseFirestore.instance
+          .collection('tracker_settings')
+          .doc(deviceId)
+          .set(_settings.toJson());
+    } catch (_) {}
+  }
+
+  Future<void> _togglePause() async {
+    final wasPaused = _settings.isPaused;
+    await _update((s) => s.copyWith(isPaused: !wasPaused));
+    if (!wasPaused) {
+      // Pausing — stop the foreground tracker's timer
+      await ForegroundTracker.instance.pause();
+    } else {
+      // Resuming — restart the foreground tracker
+      await ForegroundTracker.instance.resume();
     }
   }
 
-  Future<void> _disconnect() async {
+  // Disconnect — hidden, functionality preserved for future use
+  // Future<void> _disconnect() async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   await prefs.remove('tracker_role');
+  //   await prefs.remove('tracker_paired_device_id');
+  //   if (mounted) Navigator.of(context).pop();
+  // }
+
+  Future<void> _deleteAllData() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text(
+          'Delete all data?',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        content: const Text(
+          'This will delete all visits, location history, and tracking data. Zones will be kept. Tracking will be stopped and restarted fresh.',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF888888),
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF888888)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Color(0xFFE53935)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // Stop tracking
+    await ForegroundTracker.instance.stop();
+    try {
+      await TrackerBackgroundService.stopService();
+    } catch (_) {}
+
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('tracker_role');
-    await prefs.remove('tracker_paired_device_id');
-    if (mounted) Navigator.of(context).pop();
+    final deviceId = prefs.getString('tracker_paired_device_id') ?? '';
+
+    // Clear Firebase data
+    if (deviceId.isNotEmpty) {
+      final firestore = FirebaseFirestore.instance;
+      try {
+        // Delete all completed visits
+        final visitsDocs = await firestore
+            .collection('visits')
+            .doc(deviceId)
+            .collection('records')
+            .get();
+        final batch = firestore.batch();
+        for (final doc in visitsDocs.docs) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+
+        // Delete active visit
+        await firestore.collection('active_visit').doc(deviceId).delete();
+
+        // Delete location history (in batches of 500)
+        QuerySnapshot historySnap;
+        do {
+          historySnap = await firestore
+              .collection('location_history')
+              .doc(deviceId)
+              .collection('points')
+              .limit(500)
+              .get();
+          if (historySnap.docs.isNotEmpty) {
+            final hBatch = firestore.batch();
+            for (final doc in historySnap.docs) {
+              hBatch.delete(doc.reference);
+            }
+            await hBatch.commit();
+          }
+        } while (historySnap.docs.length == 500);
+
+        // Delete current location
+        await firestore.collection('locations').doc(deviceId).delete();
+
+        // Delete commands
+        await firestore.collection('commands').doc(deviceId).delete();
+
+        // Delete tracker settings from Firebase
+        await firestore
+            .collection('tracker_settings')
+            .doc(deviceId)
+            .delete();
+      } catch (_) {}
+    }
+
+    // Clear local SQLite (visits + offline queue, keep geofences + zone_settings)
+    try {
+      final db = await DatabaseService().database;
+      await db.delete('visits');
+      try {
+        await db.delete('offline_location_queue');
+      } catch (_) {}
+    } catch (_) {}
+
+    // Reset tracking state in SharedPreferences
+    await prefs.remove('tracker_is_tracking');
+    await prefs.remove('tracker_detector_state');
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All data deleted'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -58,121 +214,56 @@ class _TrackerSettingsScreenState extends State<TrackerSettingsScreen> {
         ),
         const SizedBox(height: 32),
 
-        // Display
-        _SectionTitle('Display'),
-        const SizedBox(height: 12),
-        GlassCard(
-          child: Column(
-            children: [
-              _ToggleRow(
-                label: 'Show speed on map',
-                value: _settings.showSpeedOnMap,
-                onChanged: (v) =>
-                    _update((s) => s.copyWith(showSpeedOnMap: v)),
+        // Pause / Resume
+        GestureDetector(
+          onTap: _togglePause,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: _settings.isPaused ? Colors.white : Colors.black,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _settings.isPaused
+                    ? const Color(0xFFE0E0E0)
+                    : Colors.black,
               ),
-              const _Divider(),
-              _ToggleRow(
-                label: 'Show battery on map',
-                value: _settings.showBatteryOnMap,
-                onChanged: (v) =>
-                    _update((s) => s.copyWith(showBatteryOnMap: v)),
-              ),
-              const _Divider(),
-              _ToggleRow(
-                label: 'Show accuracy circle',
-                value: _settings.showAccuracyCircle,
-                onChanged: (v) =>
-                    _update((s) => s.copyWith(showAccuracyCircle: v)),
-              ),
-              const _Divider(),
-              _ToggleRow(
-                label: 'Show location trail',
-                value: _settings.showTrail,
-                onChanged: (v) => _update((s) => s.copyWith(showTrail: v)),
-              ),
-              const _Divider(),
-              _ToggleRow(
-                label: 'Pulsing animation',
-                value: _settings.pulsingAnimation,
-                onChanged: (v) =>
-                    _update((s) => s.copyWith(pulsingAnimation: v)),
-              ),
-            ],
+            ),
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _settings.isPaused ? Icons.play_arrow : Icons.pause,
+                  size: 20,
+                  color: _settings.isPaused ? Colors.black : Colors.white,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _settings.isPaused ? 'Resume Tracking' : 'Pause Tracking',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: _settings.isPaused ? Colors.black : Colors.white,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-
-        const SizedBox(height: 32),
-
-        // Units
-        _SectionTitle('Units'),
-        const SizedBox(height: 12),
-        GlassCard(
-          child: Column(
-            children: [
-              _ToggleRow(
-                label: 'Use kilometers',
-                value: _settings.useKm,
-                onChanged: (v) => _update((s) => s.copyWith(useKm: v)),
+        if (_settings.isPaused)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text(
+              'Tracking is paused. No GPS or location data is being collected.',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: Color(0xFF888888),
               ),
-              const _Divider(),
-              _ToggleRow(
-                label: '24-hour time',
-                value: _settings.use24hr,
-                onChanged: (v) => _update((s) => s.copyWith(use24hr: v)),
-              ),
-            ],
+            ),
           ),
-        ),
-
-        const SizedBox(height: 32),
-
-        // Alerts
-        _SectionTitle('Alerts'),
-        const SizedBox(height: 12),
-        GlassCard(
-          child: Column(
-            children: [
-              _OptionRow(
-                label: 'Movement alert',
-                value: _settings.movementAlertMinutes == 0
-                    ? 'Off'
-                    : '${_settings.movementAlertMinutes} min',
-                options: ['Off', '5 min', '10 min', '15 min', '30 min'],
-                onSelected: (v) {
-                  final mins =
-                      v == 'Off' ? 0 : int.parse(v.replaceAll(' min', ''));
-                  _update((s) => s.copyWith(movementAlertMinutes: mins));
-                },
-              ),
-              const _Divider(),
-              _OptionRow(
-                label: 'Low battery alert',
-                value: _settings.lowBatteryThreshold == 0
-                    ? 'Off'
-                    : '${_settings.lowBatteryThreshold}%',
-                options: ['Off', '10%', '15%', '20%', '25%'],
-                onSelected: (v) {
-                  final pct =
-                      v == 'Off' ? 0 : int.parse(v.replaceAll('%', ''));
-                  _update((s) => s.copyWith(lowBatteryThreshold: pct));
-                },
-              ),
-              const _Divider(),
-              _OptionRow(
-                label: 'Connection lost',
-                value: _settings.connectionLostMinutes == 0
-                    ? 'Off'
-                    : '${_settings.connectionLostMinutes} min',
-                options: ['Off', '5 min', '10 min', '15 min'],
-                onSelected: (v) {
-                  final mins =
-                      v == 'Off' ? 0 : int.parse(v.replaceAll(' min', ''));
-                  _update((s) => s.copyWith(connectionLostMinutes: mins));
-                },
-              ),
-            ],
-          ),
-        ),
 
         const SizedBox(height: 32),
 
@@ -182,6 +273,28 @@ class _TrackerSettingsScreenState extends State<TrackerSettingsScreen> {
         GlassCard(
           child: Column(
             children: [
+              _FrequencyOption(
+                label: 'Smart',
+                subtitle: '30s moving · 2min stationary · zone overrides',
+                isSelected: _settings.updateFrequency == 'smart',
+                onTap: () =>
+                    _update((s) => s.copyWith(updateFrequency: 'smart')),
+              ),
+              if (_settings.updateFrequency == 'smart')
+                const Padding(
+                  padding: EdgeInsets.only(top: 4, bottom: 4),
+                  child: Text(
+                    'Polls faster while moving, slows down when stationary to save battery. '
+                    'Per-zone intervals override the stationary rate.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFFAAAAAA),
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              const _Divider(),
               _FrequencyOption(
                 label: 'Real-time',
                 subtitle: '10 seconds',
@@ -205,33 +318,172 @@ class _TrackerSettingsScreenState extends State<TrackerSettingsScreen> {
                 onTap: () =>
                     _update((s) => s.copyWith(updateFrequency: 'power_saver')),
               ),
+              const _Divider(),
+              _FrequencyOption(
+                label: 'Custom',
+                subtitle: _settings.updateFrequency == 'custom'
+                    ? '${_settings.customFrequencySeconds}s'
+                    : 'Set your own interval',
+                isSelected: _settings.updateFrequency == 'custom',
+                onTap: () =>
+                    _update((s) => s.copyWith(updateFrequency: 'custom')),
+              ),
             ],
           ),
         ),
+        if (_settings.updateFrequency == 'custom') ...[
+          const SizedBox(height: 12),
+          GlassCard(
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Interval (seconds)',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 80,
+                  child: TextField(
+                    controller: TextEditingController(
+                      text: '${_settings.customFrequencySeconds}',
+                    ),
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      border: OutlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFFEEEEEE)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFFEEEEEE)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.black),
+                      ),
+                    ),
+                    onSubmitted: (v) {
+                      final seconds = int.tryParse(v);
+                      if (seconds != null && seconds >= 5) {
+                        _update(
+                            (s) => s.copyWith(customFrequencySeconds: seconds));
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
 
         const SizedBox(height: 32),
 
-        // Disconnect
+        // Delete all data
+        _SectionTitle('Data'),
+        const SizedBox(height: 12),
         GestureDetector(
-          onTap: _disconnect,
+          onTap: _deleteAllData,
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFFE53935),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE53935)),
             ),
             alignment: Alignment.center,
             child: const Text(
-              'Disconnect',
+              'Delete All Data',
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: Color(0xFFE53935),
               ),
             ),
           ),
         ),
+        const SizedBox(height: 4),
+        const Text(
+          'Deletes visits, location history, and tracking data. Zones are kept.',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFFAAAAAA),
+          ),
+        ),
+
+        if (kDebugMode) ...[
+          const SizedBox(height: 32),
+          _SectionTitle('Developer'),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                  builder: (_) => const TrackerDevToolsScreen()),
+            ),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE0E0E0)),
+              ),
+              alignment: Alignment.center,
+              child: const Text(
+                'Open Dev Tools',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Debug-only harness for bug-fix verification.',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFFAAAAAA),
+            ),
+          ),
+        ],
+
+        // // Disconnect — hidden, functionality preserved for future use
+        // const SizedBox(height: 24),
+        // GestureDetector(
+        //   onTap: _disconnect,
+        //   child: Container(
+        //     width: double.infinity,
+        //     padding: const EdgeInsets.symmetric(vertical: 16),
+        //     decoration: BoxDecoration(
+        //       color: const Color(0xFFE53935),
+        //       borderRadius: BorderRadius.circular(12),
+        //     ),
+        //     alignment: Alignment.center,
+        //     child: const Text(
+        //       'Disconnect',
+        //       style: TextStyle(
+        //         fontSize: 17,
+        //         fontWeight: FontWeight.w600,
+        //         color: Colors.white,
+        //       ),
+        //     ),
+        //   ),
+        // ),
 
         const SizedBox(height: 32),
       ],
@@ -269,171 +521,6 @@ class _Divider extends StatelessWidget {
   }
 }
 
-class _ToggleRow extends StatelessWidget {
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _ToggleRow({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      behavior: HitTestBehavior.opaque,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-              color: Colors.black,
-            ),
-          ),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 44,
-            height: 26,
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(13),
-              color: value ? Colors.black : const Color(0xFFE0E0E0),
-            ),
-            child: AnimatedAlign(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              alignment:
-                  value ? Alignment.centerRight : Alignment.centerLeft,
-              child: Container(
-                width: 22,
-                height: 22,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OptionRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final List<String> options;
-  final ValueChanged<String> onSelected;
-
-  const _OptionRow({
-    required this.label,
-    required this.value,
-    required this.options,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: Colors.white,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-          ),
-          builder: (_) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 12),
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE0E0E0),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ...options.map((option) => GestureDetector(
-                      onTap: () {
-                        onSelected(option);
-                        Navigator.pop(context);
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 16),
-                        color: option == value
-                            ? const Color(0xFFFAFAFA)
-                            : Colors.transparent,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              option,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: option == value
-                                    ? FontWeight.w600
-                                    : FontWeight.w400,
-                                color: Colors.black,
-                              ),
-                            ),
-                            if (option == value)
-                              const Icon(Icons.check,
-                                  size: 18, color: Colors.black),
-                          ],
-                        ),
-                      ),
-                    )),
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
-        );
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-              color: Colors.black,
-            ),
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: Color(0xFF888888),
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right,
-                  size: 16, color: Color(0xFFCCCCCC)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _FrequencyOption extends StatelessWidget {
   final String label;
